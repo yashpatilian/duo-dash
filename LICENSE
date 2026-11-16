@@ -1,0 +1,67 @@
+Duo Dash Personal Use License
+
+Copyright (c) 2026 yashpatilian (https://github.com/yashpatilian). All rights reserved.
+
+This software and its source code (the "Software") are source-available, not open
+source. The copyright holder grants you a limited, non-exclusive, non-transferable,
+revocable licence to use the Software under the terms below. Anything not expressly
+permitted is reserved.
+
+1. What you may do
+   a. View and read the source code.
+   b. Download, build and install the Software on devices that you own or control,
+      for your own personal, non-commercial use.
+   c. Modify the Software for that same personal, non-commercial use, and keep your
+      modifications private.
+
+2. What you may not do
+   a. Copy, publish, redistribute, share, sublicense, rent, lend or sell the Software
+      or any part of it, in source or compiled form, original or modified, except as
+      allowed in section 3.
+   b. Publish or distribute modified versions or derivative works, including in
+      other repositories, packages or app stores.
+   c. Distribute the Software, or apps built from it, through the App Store,
+      TestFlight, enterprise distribution, or any other channel, free or paid.
+   d. Use the Software, or any part of it, in a commercial product or service, or
+      in work done for a third party.
+   e. Remove or change this licence or the copyright notice.
+
+3. GitHub
+   If the Software is hosted publicly on GitHub, GitHub's Terms of Service allow
+   GitHub users to view it and fork it within GitHub. Such a fork exists only under
+   that permission and this licence; it grants no further rights, and everything in
+   section 2 still applies to it.
+
+4. Contributions
+   If you submit a contribution (for example a pull request, patch or issue with
+   code), you grant the copyright holder a perpetual, worldwide, irrevocable,
+   royalty-free licence to use, modify and distribute it as part of the Software
+   under any terms.
+
+5. Third-party software and trademarks
+   The Software uses third-party frameworks and SDKs (for example Apple frameworks
+   and the Spotify iOS SDK), which remain under their own licences and terms. The
+   app icons in DuoDash/Assets.xcassets/AppIcon*.imageset and the CarPlay logo in
+   AppIconCarPlay.appiconset are the property of their owners (Apple Inc., Spotify AB);
+   they are included for identification only and are not covered by this licence. Apple,
+   CarPlay, Apple Music, iPhone and Siri are trademarks of Apple Inc. Spotify is a
+   trademark of Spotify AB. Claude is a trademark of Anthropic. This project is not
+   affiliated with, endorsed by, or sponsored by any of them.
+
+6. Safety
+   The Software is not a certified automotive product. You are responsible for
+   operating your vehicle safely and lawfully. Do not interact with the Software in
+   a way that distracts you while driving, and follow the laws about phone use and
+   phone mounting where you drive.
+
+7. No warranty and limitation of liability
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+   FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT
+   HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+   OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+   SOFTWARE OR THE USE OF OR OTHER DEALINGS IN THE SOFTWARE.
+
+8. Termination
+   This licence ends automatically if you break any of its terms. When it ends, you
+   must stop using the Software and delete all copies you have.

@@ -1,0 +1,18 @@
+# Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+.swiftpm/
+.DS_Store
+# Local secrets (Spotify client secret etc. — never commit)
+Config/Secrets.xcconfig
+# Personal branding (CarPlay name/icon are Apple trademarks): local builds only.
+Config/Local.xcconfig
+DuoDash/Assets.xcassets/AppIconLocal.appiconset/
+# Claude Code agent worktrees (local only)
+.claude/worktrees/
+ci-results/

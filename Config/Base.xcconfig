@@ -1,0 +1,17 @@
+// Defaults for signing, the app's name and its icon. The git-ignored
+// Config/Local.xcconfig (written by scripts/setup.sh and scripts/local-branding.swift)
+// overrides them for your own builds.
+// Signing: set your own in Config/Local.xcconfig (scripts/setup.sh writes it).
+DEVELOPMENT_TEAM =
+DUODASH_BUNDLE_ID = com.example.duodash
+
+// Installs as "CarPlay" with the CarPlay logo. For the "Duo Dash" name and icon instead:
+//   swift scripts/local-branding.swift --duo-dash
+DUODASH_DISPLAY_NAME = CarPlay
+DUODASH_APP_ICON = AppIconCarPlay
+
+// Spotify client ID etc. live in the git-ignored Config/Secrets.xcconfig.
+SPOTIFY_CLIENT_ID =
+#include? "Secrets.xcconfig"
+
+#include? "Local.xcconfig"
