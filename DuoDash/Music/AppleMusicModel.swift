@@ -36,6 +36,14 @@ final class AppleMusicModel: NowPlayingController {
         nowPlaying.register(.appleMusic, controller: self)
         backend.onChange = { [weak self] in self?.refreshFromPlayer() }
         refreshFromPlayer()
+        // Screenshots and layout checks: start the demo library playing (Simulator only).
+        if isDemo, ProcessInfo.processInfo.arguments.contains("-DemoPlaying") {
+            Task { [weak self] in
+                guard let self else { return }
+                await self.prepare()
+                if let first = self.library.playlists.first ?? self.library.recents.first { self.playCollection(first) }
+            }
+        }
     }
 
     var track: TrackInfo? { snapshot.track }
@@ -43,11 +51,16 @@ final class AppleMusicModel: NowPlayingController {
 
     // MARK: Access and library
 
-    /// Ask for access if needed, then load the library once.
-    func prepare() async {
+    /// Asks for Media & Apple Music access if it hasn't been decided (the welcome tour).
+    func requestAccess() async {
         if access == .notDetermined {
             access = await backend.requestAccess()
         }
+    }
+
+    /// Ask for access if needed, then load the library once.
+    func prepare() async {
+        await requestAccess()
         if access == .authorized, !hasLoadedLibrary, !isLoadingLibrary {
             await reloadLibrary()
         }

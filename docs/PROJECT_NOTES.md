@@ -8,7 +8,7 @@ Source of truth for decisions and status. Update this at the end of each work se
 - **Layout is size-driven, never orientation-driven.** Wider than tall → CarPlay-style sidebar **on the right** (iPhone Duo convention; clock on top, app icons, dashboard button at the bottom); otherwise → bottom bar of app icons + status row. This one rule covers inner landscape/portrait, cover screen, and Split View halves. `ShellLayout` keeps screen identity so nothing rebuilds when the window changes shape.
 - **Edge to edge (session 3).** The shell ignores the safe area and fills the whole screen; only the clock/status row and the dock tiles are kept clear of the camera. Reason: the cover screen reports a right inset of 84 pt (a system status column with the camera) for the full height, plus 34 pt at the bottom, which left a third of the screen empty.
 - **CarPlay look (session 3).** True black background, flush dock in `Theme.chrome`, solid dark tiles (`#1C1C1E`) for cards and list rows, SF Pro (not rounded), system blue for selection/primary. Home is the CarPlay dashboard: map + widgets; it has its own media widget, so the mini now-playing bar is hidden on Home.
-- **Official app icons, committed (owner's decision).** The dock shows the real Maps / Music / Phone / Messages / Spotify / Settings icons, rendered from the apps on the Mac by `scripts/extract-app-icons.swift` into `DuoDash/Assets.xcassets/AppIcon*.imageset/` and included in the repo. They are Apple's/Spotify's artwork (see LICENSE §5); if a rights holder objects, remove them and the dock falls back to drawn tiles in the same colours. On macOS 27 the Music icon is the white tile with a black note.
+- **Official app icons, committed (owner's decision).** The dock shows the real Maps / Music / Phone / Messages / Spotify / Settings icons, rendered from the apps on the Mac by `scripts/extract-app-icons.swift` into `DuoDash/BrandedIcons.xcassets/AppIcon*.imageset/` (their own catalog, with `AppIconCarPlay`, so the commercial build can leave them out) and included in the repo. They are Apple's/Spotify's artwork (see LICENSE §5); if a rights holder objects, remove them and the dock falls back to drawn tiles in the same colours. On macOS 27 the Music icon is the white tile with a black note.
 - **Dock scrolls, never shrinks.** Icons keep their size; the strip scrolls and fades only at an end with icons beyond it. Press and hold to drag-reorder; the order is saved (`dock.order`), new apps are appended. Clock and dashboard button are pinned.
 - **Everything the user sets is persisted** (UserDefaults; the Claude API key in the Keychain): dock order, selected tab, saved places, map orientation, voice guidance, AI provider/effort/model, favourite contacts, recents, Music tab state.
 - **Branding (owner's decision).** The app installs as "CarPlay" with the CarPlay logo (`AppIconCarPlay`, committed; Apple trademarks). `Config/Base.xcconfig` sets this default and includes the git-ignored `Config/Local.xcconfig`; `scripts/local-branding.swift --duo-dash | --icon <image> [name] | --reset` changes it per build. `Config/Secrets.xcconfig` (git-ignored) holds the Spotify client ID.
@@ -74,3 +74,49 @@ Source of truth for decisions and status. Update this at the end of each work se
   and is the working copy. To update the public repo, re-export and push a new commit there.
 - Demo video: 40 s, 1920×1080, rendered with the app-3d-video skill engine from real simulator captures
   (`MarketingCaptureTests`). The web copy (H.264, about 9 MB) is in docs/media/.
+
+## Decision: speech models in release builds (2026-11-17)
+- For the App Store / commercial release, **Whisper (speech-to-text) and Kokoro (Natural
+  Voice) ship with the app and are the default from first launch**. They override Apple's
+  dictation and text-to-speech everywhere: dictation buttons, the assistant, and turn-by-turn
+  voice. Apple's engines stay only as a fallback if a model can't load.
+- Packaging: bundling adds about 330–730 MB (Whisper small.en 218 MB or large-v3 turbo 627 MB,
+  plus Kokoro 111 MB). Deliver them with the install via Background Assets (essential
+  download) or On-Demand Resources (initial install tags) to stay within App Store size
+  guidance. The user should never see a separate download step.
+- In development builds the models are downloaded once, into Application Support/Speech.
+  Updates must never make users download them again (see AGENTS.md).
+
+## Session 2026-11-17 (overnight)
+- New apps: Weather (iOS Weather style), Calendar (Day / Month / Upcoming), Car (OBD-II),
+  Home (HomeKit, opt-in per build), Dashcam (Ultra Wide, 10-min loop). On-device speech
+  (Whisper + Kokoro). CarPlay app grid. iPad/iPhone universal with whole-UI scaling.
+- Business: `web/dock/` product site (not deployed), `docs/business/` plan, pricing (A$79,
+  A$69 launch), pipeline, marketing, launch checklist. Mount design/BOM/FEA lives in
+  `~/Downloads/3D Printing/Duo Holder/v2/`.
+- GitHub agent pipeline (`.github/workflows`, `docs/AGENT_PIPELINE.md`): off until the
+  ANTHROPIC_API_KEY secret is added to the public repo.
+- Testing notes: UI tests use `revealInDock` (DockHelpers.swift) because the dock scrolls
+  with 11 apps; window-size sweeps run on the iPad Pro 13 simulator, where every Duo canvas
+  fits unscaled (scaled canvases report misaligned frames to XCTest). Each visible screen has
+  a 1-pt marker element `screen.<app>`; never wrap a screen in an accessibility container
+  (it overwrites the app's own ids).
+- Known follow-up: `music.row.N` ids can repeat across sections; make them unique.
+## Welcome tour, Duo Dock, commercial edition (2026-11-17)
+- **Welcome tour** (`DuoDash/Onboarding/`): first launch only (`onboarding.completed` in UserDefaults);
+  replay from Settings → About → "Show the welcome tour". Flow: welcome + "used CarPlay?" → music
+  (Apple Music asks for Media access via `AppleMusicModel.requestAccess()`; Spotify → one-time setup,
+  Now = 7-step walkthrough of docs/SPOTIFY_SETUP.md + Mac command + QR to the guide + video slot)
+  → 4 tour pages (new users) or "What's new compared with CarPlay" → permissions (Location, Contacts,
+  Microphone & Speech; only undecided ones; page skipped when none) → Duo Dock sheet. Answers and
+  the current page persist (`onboarding.*` keys). Hidden under `-UITest`/`-Capture` unless
+  `-Onboarding`; `-OnboardingStep <id>` opens a page directly (screenshots). Location isn't
+  started while the tour is up, so its Allow button asks.
+- Layout follows the app's rules: size-driven (wide = art beside text, otherwise stacked), split on
+  the fold when the Duo is half open (`FoldGeometry`), iPad scaled like the dashboard. Buttons use
+  system Liquid Glass (`.glass` / `.glassProminent`, `GlassEffectContainer`, `glassEffectID`).
+- **Duo Dock** car mount: promo sheet at the end of the tour and Settings → Duo Dock; store link is
+  one constant, `DockStore.url` (https://doc.yashyp.com).
+- **Editions:** `DUODASH_EDITION` (`personal` default, `commercial`) → Info.plist `DuoDashEdition`
+  → `Edition.current`. Commercial (`-xcconfig Config/Commercial.xcconfig`): "Duo Dash" name and
+  icon, SF Symbol tiles, no "CarPlay" wording, `BrandedIcons.xcassets` excluded. See docs/COMMERCIAL.md.

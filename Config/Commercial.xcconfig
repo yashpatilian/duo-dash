@@ -1,0 +1,10 @@
+// The commercial (App Store) edition of Duo Dash. Build it with
+//   xcodebuild -project DuoDash.xcodeproj -scheme DuoDash -xcconfig Config/Commercial.xcconfig ...
+// Everything in Base.xcconfig (and your git-ignored Local.xcconfig: team, bundle ID) still
+// applies; the lines below come after it, so they win over any personal branding there.
+// See docs/COMMERCIAL.md.
+#include "Base.xcconfig"
+
+DUODASH_EDITION = commercial
+DUODASH_DISPLAY_NAME = Duo Dash
+DUODASH_APP_ICON = AppIcon

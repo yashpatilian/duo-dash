@@ -43,14 +43,7 @@ final class SpotifyUITests: XCTestCase {
     private func openSpotify() {
         let button = app.buttons["dock.spotify"]
         XCTAssertTrue(button.waitForExistence(timeout: 5))
-        let strip = app.scrollViews["dock.scroll"]
-        for attempt in 0..<6 where strip.exists && !button.isHittable {
-            let start = strip.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            let vertical = strip.frame.height > strip.frame.width
-            let step: CGFloat = attempt < 3 ? -150 : 150
-            start.press(forDuration: 0.01, thenDragTo: start.withOffset(vertical ? CGVector(dx: 0, dy: step) : CGVector(dx: step, dy: 0)))
-        }
-        button.tap()
+        app.tapDockButton(button)
         XCTAssertTrue(app.descendants(matching: .any)["screen.spotify"].waitForExistence(timeout: 5))
     }
 
@@ -97,6 +90,13 @@ final class SpotifyUITests: XCTestCase {
         XCTAssertTrue(playlists.waitForExistence(timeout: 5), "did not connect")
         XCTAssertTrue(app.buttons["spotify.row.0"].waitForExistence(timeout: 5), "recents did not load")
         screenshot("spotify-recents")
+
+        // A recent playlist opens its page (it used to start playing instead).
+        app.buttons["spotify.row.0"].tap()
+        XCTAssertTrue(waitForLabel(app.staticTexts["spotify.page.title"], toBe: "Night Drive"), "recent playlist did not open")
+        XCTAssertTrue(app.buttons["spotify.song.0"].waitForExistence(timeout: 5), "recent playlist has no songs")
+        app.buttons["spotify.back"].tap()
+        XCTAssertTrue(app.buttons["spotify.row.0"].waitForExistence(timeout: 5), "back did not return to Recents")
 
         playlists.tap()
         let nightDrive = app.buttons["spotify.shelf0.row.1"]
@@ -151,7 +151,9 @@ final class SpotifyUITests: XCTestCase {
         app.buttons["spotify.tab.recents"].tap()
         let row = app.buttons["spotify.row.0.play"]
         XCTAssertTrue(row.waitForExistence(timeout: 5))
-        XCTAssertTrue(row.isHittable)
+        screenshot("spotify-narrow-recents")
+        // On a scaled test canvas isHittable misreports; check it's fully on screen instead.
+        XCTAssertTrue(app.windows.firstMatch.frame.contains(row.frame), "row play button off screen: \(row.frame)")
         row.tap()
         XCTAssertTrue(app.staticTexts["spotify.np.title"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["spotify.np.playpause"].isHittable)

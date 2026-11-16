@@ -35,13 +35,18 @@ final class PlacesUITests: XCTestCase {
     }
 
     private func open(_ id: String) {
-        app.buttons["dock.\(id)"].tap()
+        let button = app.buttons["dock.\(id)"]
+        // Home is a toggle (Dashboard / app grid): already there means nothing to do.
+        if id == "home", button.exists, button.isSelected, app.descendants(matching: .any)["screen.home"].exists { return }
+        app.tapDockButton(button)
         XCTAssertTrue(app.descendants(matching: .any)["screen.\(id)"].waitForExistence(timeout: 5))
     }
 
     /// The orientation switch on the given screen (screens stay alive, so both maps have one).
     private func orientationButton(on screen: String) -> XCUIElement {
-        app.descendants(matching: .any)["screen.\(screen)"].buttons["map.orientation"]
+        // Hidden screens are hidden from accessibility, so only the visible screen's button is found.
+        XCTAssertTrue(app.descendants(matching: .any)["screen.\(screen)"].waitForExistence(timeout: 5))
+        return app.buttons[screen == "home" ? "home.map.orientation" : "map.orientation"].firstMatch
     }
 
     private func snapshot(_ name: String) {

@@ -182,10 +182,18 @@ struct PlaceCategory: Equatable {
     ]
 
     static func match(_ text: String) -> PlaceCategory? {
-        let t = text.lowercased().trimmingCharacters(in: .whitespaces)
+        var t = text.lowercased().trimmingCharacters(in: .whitespaces)
+        // "a bakery", "the nearest servo": generic phrasing. A name that merely ends in a
+        // category word ("Corner Bakery") is a specific place, not a category search.
+        let generic = ["a ", "an ", "the ", "some ", "nearest ", "closest ", "nearby ", "cheapest ", "good ", "any "]
+        var stripped = true
+        while stripped {
+            stripped = false
+            for g in generic where t.hasPrefix(g) { t.removeFirst(g.count); stripped = true }
+        }
         guard !t.isEmpty else { return nil }
         for row in table {
-            if row.words.contains(where: { t == $0 || t == $0 + "s" || t.hasPrefix($0 + " ") || t.hasSuffix(" " + $0) }) {
+            if row.words.contains(where: { t == $0 || t == $0 + "s" || t.hasPrefix($0 + " ") || t.hasPrefix($0 + "s ") }) {
                 return PlaceCategory(query: row.query, category: row.category, isMeal: row.meal)
             }
         }

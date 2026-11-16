@@ -6,10 +6,21 @@ import MapKit
 /// open); tall or narrow windows (portrait, cover screen, Split View) stack.
 struct HomeView: View {
     @Environment(AppModel.self) private var app
+    @Environment(CalendarModel.self) private var calendar
+    @Environment(CarDataModel.self) private var car
+    @Environment(NavigationModel.self) private var navigation
     @Environment(\.dashMetrics) private var metrics
     @State private var position: MapCameraPosition = MapOrientation.current().followPosition(guiding: false)
 
     var body: some View {
+        if app.showsAppGrid {
+            AppGridView().transition(.opacity.combined(with: .scale(scale: 0.97)))
+        } else {
+            dashboard.transition(.opacity)
+        }
+    }
+
+    private var dashboard: some View {
         GeometryReader { proxy in
             let size = proxy.size
             let wide = metrics.homeIsSplit
@@ -23,10 +34,20 @@ struct HomeView: View {
 
                 VStack(spacing: Theme.gap) {
                     if wide {
+                        // Now Playing takes the spare height (big artwork); the others keep their natural size.
                         NowPlayingCard()
-                        NextTurnCard()
+                        NextTurnCard().fixedSize(horizontal: false, vertical: true)
                         if size.height >= 520 {
-                            FavouriteContactsCard().fixedSize(horizontal: false, vertical: true)
+                            // Live car data when an OBD adapter is connected; else the next event + weather; else favourite contacts.
+                            if car.state.isConnected {
+                                CarDashboardCard(compact: true, onOpen: { app.open(.car) })
+                                    .frame(maxHeight: 150)
+                            } else if calendar.nextEvent != nil {
+                                NextUpCard(onNavigate: { navigation.go(to: $0) }, onOpenCalendar: { app.open(.calendar) })
+                                    .frame(maxHeight: 150)
+                            } else {
+                                FavouriteContactsCard().fixedSize(horizontal: false, vertical: true)
+                            }
                         }
                     } else {
                         NextTurnCard().fixedSize(horizontal: false, vertical: true)
@@ -48,10 +69,14 @@ struct HomeView: View {
                 .padding(10)
             }
             .overlay(alignment: .bottomTrailing) {
-                MapControls(position: $position).padding(10)
+                MapControls(position: $position, idPrefix: "home.map").padding(10)
             }
             .overlay(alignment: .topLeading) {
-                LocationDeniedBanner().padding(10)
+                VStack(alignment: .leading, spacing: 8) {
+                    LocationDeniedBanner()
+                    WeatherChip(showsText: false)
+                }
+                .padding(10)
             }
             .overlay(alignment: .bottomLeading) {
                 // Sits above the Apple Maps logo and Legal link, which must stay visible.
@@ -83,12 +108,95 @@ struct NowPlayingCard: View {
                     header
                     controls(showsPrevious: false)
                 }
+            } else if nowPlaying.source == .none && nowPlaying.title == nil {
+                idle
             } else {
-                VStack(alignment: .leading, spacing: 10) {
-                    header
-                    Spacer(minLength: 0)
-                    controls(showsPrevious: true).frame(maxWidth: .infinity)
+                GeometryReader { proxy in
+                    // Artwork as big as the card allows, with the controls in a row underneath.
+                    let art = min(proxy.size.height - Theme.minTouch - 14, proxy.size.width * 0.46, 176)
+                    VStack(alignment: .leading, spacing: 14) {
+                        if art >= 72 {
+                            HStack(alignment: .top, spacing: 16) {
+                                artworkButton(size: art)
+                                titles(large: true)
+                                Spacer(minLength: 0)
+                            }
+                        } else {
+                            header
+                        }
+                        Spacer(minLength: 0)
+                        controls(showsPrevious: true).frame(maxWidth: .infinity)
+                    }
                 }
+            }
+        }
+    }
+
+    /// Nothing playing: quick ways in, instead of an empty card.
+    private var idle: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            header
+            Spacer(minLength: 0)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) {
+                    sourceButton(.music, title: "Apple Music", showsTitle: true)
+                    sourceButton(.spotify, title: "Spotify", showsTitle: true)
+                }
+                HStack(spacing: 10) {
+                    sourceButton(.music, title: "Apple Music", showsTitle: false)
+                    sourceButton(.spotify, title: "Spotify", showsTitle: false)
+                }
+            }
+        }
+    }
+
+    private func sourceButton(_ item: DockItem, title: String, showsTitle: Bool) -> some View {
+        Button { app.open(item) } label: {
+            HStack(spacing: 12) {
+                if let asset = item.officialIconAsset {
+                    Image(asset).resizable().scaledToFit().frame(width: 40, height: 40)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                } else {
+                    AppTile(item: item, size: 40)
+                }
+                if showsTitle {
+                    Text(title).font(.dashBody).lineLimit(1).fixedSize()
+                    Spacer(minLength: 0)
+                }
+            }
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, minHeight: Theme.minTouch + 12)
+            .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(PressableStyle())
+        .accessibilityLabel(title)
+        .accessibilityIdentifier("home.nowplaying.open.\(item.rawValue)")
+    }
+
+    private func artworkButton(size: CGFloat) -> some View {
+        Button { app.open(nowPlaying.source.dockItem ?? .music) } label: {
+            ArtworkView(image: nowPlaying.artwork, size: size)
+                .shadow(color: .black.opacity(0.35), radius: 10, y: 4)
+        }
+        .buttonStyle(PressableStyle())
+        .accessibilityLabel(nowPlaying.title ?? "Now playing")
+        .accessibilityIdentifier("home.nowplaying")
+    }
+
+    private func titles(large: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(nowPlaying.title ?? "Nothing playing")
+                .font(large ? .dashTitle : .dashBody).lineLimit(2)
+            Text(nowPlaying.artist ?? "Tap to choose music")
+                .font(large ? .dashBody : .dashCaption)
+                .foregroundStyle(Theme.textSecondary)
+                .lineLimit(1)
+            if large, nowPlaying.source != .none {
+                Text(nowPlaying.source.displayName)
+                    .font(.dashCaption)
+                    .foregroundStyle(Theme.textSecondary)
+                    .padding(.top, 2)
             }
         }
     }
@@ -119,16 +227,11 @@ struct NowPlayingCard: View {
     @ViewBuilder
     private func controls(showsPrevious: Bool) -> some View {
         if nowPlaying.source != .none {
-            HStack(spacing: 10) {
-                if showsPrevious {
-                    DashIconButton(symbol: "backward.fill", label: "Previous") { nowPlaying.skipToPrevious() }
-                }
-                DashIconButton(symbol: nowPlaying.isPlaying ? "pause.fill" : "play.fill", prominent: true,
-                               label: nowPlaying.isPlaying ? "Pause" : "Play", identifier: "home.playpause") {
-                    nowPlaying.togglePlayPause()
-                }
-                DashIconButton(symbol: "forward.fill", label: "Next", identifier: "home.next") { nowPlaying.skipToNext() }
-            }
+            GlassTransport(isPlaying: nowPlaying.isPlaying, showsPrevious: showsPrevious,
+                           scale: showsPrevious ? 1.1 : 1, idPrefix: "home",
+                           previous: { nowPlaying.skipToPrevious() },
+                           playPause: { nowPlaying.togglePlayPause() },
+                           next: { nowPlaying.skipToNext() })
         }
     }
 }

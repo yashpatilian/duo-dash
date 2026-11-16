@@ -240,7 +240,7 @@ final class DemoSpotifyBackend: SpotifyBackend {
         }
         func container(_ uri: String, _ title: String, _ subtitle: String, count: Int) -> SpotifyItem {
             let item = SpotifyItem(identifier: uri, uri: uri, title: title, subtitle: subtitle,
-                                   imageIdentifier: uri, isContainer: true, isPlayable: true)
+                                   imageIdentifier: uri, isContainer: false, isPlayable: true)   // as App Remote reports them
             containers[uri] = (item, songs(count, album: title))
             return item
         }

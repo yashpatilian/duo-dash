@@ -29,7 +29,8 @@ struct PhoneView: View {
                 switch tab {
                 case .favourites:
                     FavouritesGrid(idPrefix: "phone", badge: "phone.fill",
-                                   emptyMessage: "Add the people you call most.") { contacts.call($0.recipient) }
+                                   emptyMessage: "Add the people you call most.", recentKind: .call,
+                                   onTap: { contacts.call($0.recipient) }, onRecent: { contacts.call($0.recipient) })
                 case .recents:
                     DashRecentsList(kind: .call, idPrefix: "phone") { contacts.call($0.recipient) }
                 case .contacts:

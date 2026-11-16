@@ -69,6 +69,9 @@ Allow the permissions as each feature first needs them:
 
 ## Optional extras
 
+For car data (OBD-II adapter), the dashcam, calendar, weather and Home (HomeKit), see
+[CAR_SETUP.md](CAR_SETUP.md): what to buy and how to set each one up.
+
 ### Refresh the app icons in the dock
 The dock uses the official Maps, Music, Phone, Messages, Spotify and Settings icons, which are
 included. To re-render them from the apps on your own Mac (for example after a macOS update

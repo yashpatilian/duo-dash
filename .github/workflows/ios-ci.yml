@@ -1,0 +1,82 @@
+name: iOS CI
+
+# Manual only: builds and tests run locally on the Mac (Xcode + iPhone Duo
+# simulator + the real device). Trigger from the Actions tab if a cloud run is
+# ever wanted; macOS minutes count 10x on a private repo.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ios-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-test:
+    runs-on: xcode-27
+    timeout-minutes: 90
+    env:
+      BUNDLE_ID: com.example.duodash
+      DEST: platform=iOS Simulator,name=iPhone Duo
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Probe toolchain
+        run: |
+          rm -rf ci-results && mkdir -p ci-results
+          {
+            echo "# CI result for ${GITHUB_SHA::7}"
+            echo '```'; xcodebuild -version
+            xcrun simctl list devices available | grep -i duo || echo "no Duo devices"
+            echo "simctl fold/hinge: $(xcrun simctl help 2>&1 | grep -i -E 'hinge|fold|posture' || echo none)"
+            echo '```'
+          } > ci-results/REPORT.md
+          cat ci-results/REPORT.md
+
+      - name: Build for testing
+        timeout-minutes: 25
+        run: |
+          set +e
+          UDID=$(xcrun simctl list devices available | grep "iPhone Duo" | tail -1 | grep -oE '[0-9A-F-]{36}')
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          xcodebuild build-for-testing -project DuoDash.xcodeproj -scheme DuoDash \
+            -destination "id=$UDID" -derivedDataPath build \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= > ci-results/build.log 2>&1
+          status=$?
+          { echo "## Build (exit $status)"; echo '```'; grep -E "error|warning:.*\.swift" ci-results/build.log | sed 's#.*/carplaydupe/##' | sort -u | head -80; echo '```'; } >> ci-results/REPORT.md
+          tail -40 ci-results/build.log
+          if [ $status -ne 0 ]; then cp ci-results/build.log ci-results/build-failure.log; ci/push-results.sh build-failed; fi
+          exit $status
+
+      - name: Screenshot pass
+        timeout-minutes: 30
+        run: |
+          for s in location location-always media-library; do xcrun simctl privacy "$UDID" grant "$s" "$BUNDLE_ID" || true; done
+          xcodebuild test-without-building -project DuoDash.xcodeproj -scheme DuoDash -destination "id=$UDID" \
+            -derivedDataPath build -resultBundlePath Shots.xcresult \
+            -only-testing:DuoDashUITests/DuoDashUITests/testAllWindowSizes \
+            -only-testing:DuoDashUITests/DuoDashUITests/testMusicPlaybackControls \
+            -only-testing:DuoDashUITests/DuoDashUITests/testScreenInfoOverlay > ci-results/screenshots-pass.log 2>&1 || true
+          ci/collect.sh Shots.xcresult screenshots-pass
+          ci/push-results.sh screenshots
+
+      - name: Full test sweep
+        timeout-minutes: 45
+        run: |
+          xcodebuild test-without-building -project DuoDash.xcodeproj -scheme DuoDash -destination "id=$UDID" \
+            -derivedDataPath build -resultBundlePath Full.xcresult > ci-results/full.log 2>&1
+          status=$?
+          echo "exit $status" >> ci-results/full.log
+          exit $status
+
+      - name: Collect full results
+        if: always()
+        run: |
+          ci/collect.sh Full.xcresult full
+          { echo "## Crash reports"; ls ~/Library/Logs/DiagnosticReports/ 2>/dev/null | grep -i duodash || echo none; } >> ci-results/REPORT.md
+          rm -f ci-results/build.log
+          gzip -f ci-results/*.log || true
+          ci/push-results.sh full
+          cat ci-results/REPORT.md

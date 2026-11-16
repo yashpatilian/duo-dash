@@ -37,7 +37,8 @@ struct MessagesView: View {
                         switch tab {
                         case .favourites:
                             FavouritesGrid(idPrefix: "messages", badge: "message.fill",
-                                           emptyMessage: "Add the people you text most.") { open($0.recipient) }
+                                           emptyMessage: "Add the people you text most.", recentKind: .message,
+                                           onTap: { open($0.recipient) }, onRecent: { open($0.recipient) })
                         case .recents:
                             DashRecentsList(kind: .message, idPrefix: "messages") { open($0.recipient) }
                         case .new:

@@ -8,6 +8,7 @@
 	<array>
 		<string>audio</string>
 		<string>location</string>
+		<string>bluetooth-central</string>
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Duo Dash uses your location to show you on the map and give turn-by-turn directions.</string>
@@ -70,5 +71,19 @@
 	<true/>
 	<key>UIUserInterfaceStyle</key>
 	<string>Dark</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Duo Dash shows your next event on the dashboard and gives one-tap directions to it.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Duo Dash uses the rear camera as a dashcam, recording the road ahead while it's on screen.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Duo Dash saves dashcam clips you choose to your photo library.</string>
+	<key>NSHomeKitUsageDescription</key>
+	<string>Duo Dash shows your garage door, locks, lights and scenes on the dashboard so you can open the garage or turn on the lights from the car.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Duo Dash connects to your Bluetooth OBD-II adapter to show live engine data, battery voltage and check-engine codes.</string>
+	<key>DuoDashEdition</key>
+	<string>$(DUODASH_EDITION)</string>
+	<key>DuoDashHomeKit</key>
+	<string>$(DUODASH_HOMEKIT)</string>
 </dict>
 </plist>

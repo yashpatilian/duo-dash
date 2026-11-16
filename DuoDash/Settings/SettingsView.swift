@@ -8,28 +8,37 @@ struct SettingsView: View {
     @State private var section: SettingsSection = .assistant
 
     enum SettingsSection: String, CaseIterable, Identifiable {
-        case assistant = "AI Assistant", navigation = "Navigation", places = "Saved Places",
-             dock = "Dock", phone = "Phone & Messages", car = "Car", about = "About"
+        case assistant = "AI Assistant", voice = "Voice & Dictation", navigation = "Navigation", places = "Saved Places",
+             dock = "Dock", phone = "Phone & Messages", car = "Car", dashcam = "Dashcam", home = "Home",
+             duoDock = "Duo Dock", about = "About"
         var id: String { rawValue }
         var symbol: String {
             switch self {
             case .assistant: "sparkles"
+            case .voice: "waveform"
             case .navigation: "location.north.fill"
             case .places: "mappin.and.ellipse"
             case .dock: "square.grid.2x2.fill"
             case .phone: "phone.fill"
             case .car: "car.fill"
+            case .dashcam: "video.fill"
+            case .home: "house.fill"
+            case .duoDock: "rectangle.split.2x1.fill"
             case .about: "info.circle.fill"
             }
         }
         var tint: Color {
             switch self {
             case .assistant: Color(red: 0.55, green: 0.36, blue: 0.96)
+            case .voice: Color(red: 0.98, green: 0.30, blue: 0.45)
             case .navigation: Theme.accent
             case .places: Theme.danger
             case .dock: Color(white: 0.45)
             case .phone: Theme.positive
             case .car: Theme.warning
+            case .dashcam: Theme.danger
+            case .home: Color(red: 0.98, green: 0.6, blue: 0.15)
+            case .duoDock: Theme.accent
             case .about: Color(white: 0.45)
             }
         }
@@ -99,11 +108,15 @@ struct SettingsView: View {
     private func sectionContent(_ item: SettingsSection) -> some View {
         switch item {
         case .assistant: AssistantSettingsSection()
+        case .voice: SpeechSettingsSection()
         case .navigation: NavigationSettingsSection()
         case .places: PlacesSettingsSection()
         case .dock: DockSettingsSection()
         case .phone: PhoneSettingsSection()
         case .car: CarSettingsSection()
+        case .dashcam: SettingsGroup(footer: "The rear camera records the road while Duo Dash is on screen. iOS stops the camera when the phone locks or another app is in front.") { DashcamSettingsPanel().padding(16) }
+        case .home: SettingsGroup(footer: "Duo Dash never unlocks doors on its own. With automatic opening on, only the garage opens as you arrive.") { HomeArrivalSettingsView().padding(16) }
+        case .duoDock: DuoDockSettingsSection()
         case .about: AboutSettingsSection()
         }
     }
@@ -439,12 +452,72 @@ private struct CarSettingsSection: View {
     ]
 }
 
+private struct DuoDockSettingsSection: View {
+    var body: some View {
+        SettingsGroup(footer: "Duo Dash works in any mount; Duo Dock is made for it.") {
+            VStack(alignment: .leading, spacing: 14) {
+                FittedArt(maxScale: 1.3) { DuoDockIllustration() }
+                    .frame(height: 210)
+                    .accessibilityIdentifier("settings.dock.illustration")
+                Text(DuoDockCopy.headline).font(.dashTitle)
+                Text(DuoDockCopy.about).font(.dashCaption).foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("settings.dock.about")
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(DuoDockCopy.benefits, id: \.text) { benefit in
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: benefit.symbol)
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(Theme.accent)
+                                .frame(width: 28, height: 28)
+                            Text(benefit.text).font(.dashCaption)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("settings.dock.benefits")
+                Button {
+                    UIApplication.shared.open(DockStore.url)
+                } label: {
+                    Label("Visit the website", systemImage: "arrow.up.forward")
+                        .font(.dashBody)
+                        .padding(.horizontal, 10)
+                        .frame(minHeight: Theme.minTouch)
+                }
+                .buttonStyle(.glassProminent)
+                .buttonBorderShape(.capsule)
+                .tint(Theme.accent)
+                .accessibilityIdentifier("settings.dock.visit")
+            }
+            .padding(16)
+        }
+    }
+}
+
 private struct AboutSettingsSection: View {
     @Environment(AppModel.self) private var app
+    @Environment(OnboardingModel.self) private var onboarding
 
     var body: some View {
-        SettingsGroup {
+        SettingsGroup(footer: Edition.notAffiliatedNotice) {
             SettingsRow(title: "Version", subtitle: version) { EmptyView() }
+            RowDivider()
+            Button { onboarding.restart() } label: {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Show the welcome tour").font(.dashBody).foregroundStyle(Theme.accent)
+                        Text("Music setup, a short tour and permissions").font(.dashCaption).foregroundStyle(Theme.textSecondary)
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right").font(.dashCaption).foregroundStyle(Theme.textSecondary)
+                }
+                .padding(.horizontal, 16)
+                .frame(minHeight: Theme.minTouch + 6)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(PressableStyle())
+            .accessibilityIdentifier("onboarding.showAgain")
             RowDivider()
             SettingsRow(title: "Screen info", subtitle: "Real screen, window, safe-area and hinge numbers") {
                 DashPillButton(title: "Show", prominent: false, identifier: "settings.screenInfo") {

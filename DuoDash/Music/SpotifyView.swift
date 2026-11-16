@@ -267,7 +267,7 @@ private struct SpotifyItemGrid: View {
                 SpotifyItemRow(item: item, identifier: "\(idPrefix).\(index)",
                                isPending: spotify.pendingItemID == item.id) {
                     // Playlists and albums open their page; songs play straight away.
-                    if item.isContainer { onOpen(item) } else { spotify.play(item) }
+                    if item.opensAsPage { onOpen(item) } else { spotify.play(item) }
                 }
             }
         }
@@ -376,7 +376,7 @@ private struct SpotifyItemRow: View {
                         }
                     }
                     Spacer(minLength: 0)
-                    if item.isContainer {
+                    if item.opensAsPage {
                         Image(systemName: "chevron.right")
                             .font(.system(size: 15, weight: .bold))
                             .foregroundStyle(Theme.textSecondary.opacity(0.7))
@@ -391,7 +391,7 @@ private struct SpotifyItemRow: View {
             .accessibilityLabel(item.subtitle.isEmpty ? item.title : "\(item.title), \(item.subtitle)")
             .accessibilityIdentifier(identifier)
 
-            if item.isContainer && item.isPlayable {
+            if item.opensAsPage && item.isPlayable {
                 // Play the whole playlist without opening it.
                 Button { spotify.play(item) } label: {
                     Image(systemName: "play.fill")

@@ -28,16 +28,7 @@ final class SettingsUITests: XCTestCase {
     private func openSettings() {
         let button = app.buttons["dock.settings"]
         XCTAssertTrue(button.waitForExistence(timeout: 10), "Settings missing from the dock")
-        let strip = app.scrollViews["dock.scroll"]
-        var tries = 0
-        while !button.isHittable && tries < 6 && strip.exists {
-            let start = strip.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            let vertical = strip.frame.height > strip.frame.width
-            start.press(forDuration: 0.01, thenDragTo: start.withOffset(vertical ? CGVector(dx: 0, dy: -150) : CGVector(dx: -150, dy: 0)))
-            tries += 1
-        }
-        XCTAssertTrue(button.isHittable, "Settings icon not reachable by scrolling the dock")
-        button.tap()
+        app.tapDockButton(button)
         XCTAssertTrue(app.descendants(matching: .any)["settings"].waitForExistence(timeout: 5))
     }
 

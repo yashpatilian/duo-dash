@@ -4,19 +4,22 @@
 #   scripts/setup.sh                       # interactive
 #   scripts/setup.sh --team ABCDE12345 --bundle-id com.you.duodash [--icons] [--install]
 #   scripts/setup.sh --install             # rebuild + install with the saved settings
+#   scripts/setup.sh --homekit --install   # turn on Home control (needs Xcode signed in)
 #
 # Writes git-ignored Config/Local.xcconfig (and Config/Secrets.xcconfig if you give a
 # Spotify client ID). Nothing personal is ever written to tracked files.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-TEAM="" BUNDLE="" SPOTIFY="" ICONS=0 INSTALL=0 DEVICE=""
+TEAM="" BUNDLE="" SPOTIFY="" ICONS=0 INSTALL=0 DEVICE="" HOMEKIT=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --team) TEAM="$2"; shift 2 ;;
     --bundle-id) BUNDLE="$2"; shift 2 ;;
     --spotify-client-id) SPOTIFY="$2"; shift 2 ;;
     --icons) ICONS=1; shift ;;
+    --homekit) HOMEKIT=YES; shift ;;
+    --no-homekit) HOMEKIT=NO; shift ;;
     --install) INSTALL=1; shift ;;
     --device) DEVICE="$2"; shift 2 ;;
     -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
@@ -70,6 +73,16 @@ if [ -n "$SPOTIFY" ]; then
   [[ "$SPOTIFY" =~ ^[0-9a-f]{32}$ ]] || fail "A Spotify client ID is 32 hex characters."
   printf '// Git-ignored. Spotify developer app client ID.\nSPOTIFY_CLIENT_ID = %s\n' "$SPOTIFY" > Config/Secrets.xcconfig
   echo "Saved Spotify client ID to Config/Secrets.xcconfig"
+fi
+
+# 3b. Optional: HomeKit (garage, locks, lights). Its entitlement needs an app-specific
+# provisioning profile, which Xcode creates only while you're signed in (Settings → Accounts).
+if [ -n "$HOMEKIT" ]; then
+  TMP=$(mktemp)
+  grep -vE "^DUODASH_HOMEKIT *=" "$LOCAL" > "$TMP" || true
+  { cat "$TMP"; echo "DUODASH_HOMEKIT = $HOMEKIT"; } > "$LOCAL"
+  rm -f "$TMP"
+  echo "HomeKit: $HOMEKIT (saved to $LOCAL)"
 fi
 
 # 4. Optional: refresh the dock's official app icons from the apps on this Mac.

@@ -4,13 +4,18 @@ import MapKit
 /// Full-screen map with search, route preview and turn-by-turn guidance.
 struct MapsView: View {
     @Environment(NavigationModel.self) private var navigation
+    @Environment(\.dashMetrics) private var metrics
     @State private var position: MapCameraPosition = MapOrientation.current().followPosition(guiding: false)
     @State private var search = SearchModel()
 
     var body: some View {
         GeometryReader { proxy in
             let narrow = proxy.size.width < 560
-            let panelWidth = narrow ? proxy.size.width - 24 : min(420, max(320, proxy.size.width * 0.4))
+            // Guiding on a small window: one slim card across the top (see GuidancePanel).
+            let slimGuidance = metrics.isCompact && (navigation.state == .navigating || navigation.state == .arrived)
+            let panelWidth = narrow ? proxy.size.width - 24
+                : slimGuidance ? min(560, proxy.size.width - 24)
+                : min(420, max(320, proxy.size.width * 0.4))
             ZStack(alignment: .topLeading) {
                 DashMapView(position: $position)
 
@@ -41,7 +46,8 @@ struct MapsView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
 
                 // Voice assistant: its button and panel (DuoDash/Assistant).
-                AssistantOverlay()
+                // On short windows the left panel reaches the bottom, so the button moves past it.
+                AssistantOverlay(buttonLeading: !narrow && !slimGuidance && proxy.size.height < 520 ? panelWidth + 12 : 0)
             }
             .animation(.snappy, value: navigation.state)
         }
@@ -114,6 +120,10 @@ struct RoutePreviewCard: View {
                 if !route.name.isEmpty {
                     Text("via \(route.name)").font(.dashCaption).foregroundStyle(Theme.textSecondary).lineLimit(1)
                 }
+                if let destination = navigation.destination {
+                    DestinationWeatherBadge(coordinate: destination.location.coordinate,
+                                            eta: Date().addingTimeInterval(navigation.tripTime), showsAttribution: true)
+                }
             }
             HStack(spacing: 10) {
                 DashPillButton(title: "Start", symbol: "location.north.fill", identifier: "nav.start") { navigation.start() }
@@ -154,8 +164,23 @@ struct RoutePreviewCard: View {
 /// Banner, trip summary and End button during guidance.
 struct GuidancePanel: View {
     @Environment(NavigationModel.self) private var navigation
+    @Environment(\.dashMetrics) private var metrics
 
     var body: some View {
+        if metrics.isCompact {
+            // Folded / small windows: one slim card so most of the map stays visible.
+            CompactGuidanceCard()
+                .contentShape(Rectangle())
+                .onTapGesture { navigation.repeatInstruction() }
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: Theme.corner, style: .continuous))
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("nav.banner")
+        } else {
+            fullPanel
+        }
+    }
+
+    private var fullPanel: some View {
         VStack(alignment: .leading, spacing: Theme.gap) {
             TurnBannerView()
                 .padding(16)

@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		D0DA5A0100000000000000A0 /* SpotifyiOS in Frameworks */ = {isa = PBXBuildFile; productRef = D0DA5A0100000000000000A2 /* SpotifyiOS */; };
+		D0DA5A0100000000000000B0 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = D0DA5A0100000000000000B2 /* WhisperKit */; };
+		D0DA5A0100000000000000C0 /* KokoroCoreML in Frameworks */ = {isa = PBXBuildFile; productRef = D0DA5A0100000000000000C2 /* KokoroCoreML */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -59,6 +61,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				D0DA5A0100000000000000A0 /* SpotifyiOS in Frameworks */,
+				D0DA5A0100000000000000B0 /* WhisperKit in Frameworks */,
+				D0DA5A0100000000000000C0 /* KokoroCoreML in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -130,6 +134,8 @@
 			name = DuoDash;
 			packageProductDependencies = (
 				D0DA5A0100000000000000A2 /* SpotifyiOS */,
+				D0DA5A0100000000000000B2 /* WhisperKit */,
+				D0DA5A0100000000000000C2 /* KokoroCoreML */,
 			);
 			productName = DuoDash;
 			productReference = D0DA5A010000000000000001 /* DuoDash.app */;
@@ -215,6 +221,8 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				D0DA5A0100000000000000A1 /* XCRemoteSwiftPackageReference "ios-sdk" */,
+				D0DA5A0100000000000000B1 /* XCRemoteSwiftPackageReference "argmax-oss-swift" */,
+				D0DA5A0100000000000000C1 /* XCRemoteSwiftPackageReference "kokoro-coreml" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D0DA5A010000000000000031 /* Products */;
@@ -517,6 +525,22 @@
 				minimumVersion = 5.0.1;
 			};
 		};
+		D0DA5A0100000000000000B1 /* XCRemoteSwiftPackageReference "argmax-oss-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/argmaxinc/argmax-oss-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.1.1;
+			};
+		};
+		D0DA5A0100000000000000C1 /* XCRemoteSwiftPackageReference "kokoro-coreml" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Jud/kokoro-coreml";
+			requirement = {
+				kind = upToNextMinorVersion;
+				minimumVersion = 0.11.2;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -524,6 +548,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D0DA5A0100000000000000A1 /* XCRemoteSwiftPackageReference "ios-sdk" */;
 			productName = SpotifyiOS;
+		};
+		D0DA5A0100000000000000B2 /* WhisperKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D0DA5A0100000000000000B1 /* XCRemoteSwiftPackageReference "argmax-oss-swift" */;
+			productName = WhisperKit;
+		};
+		D0DA5A0100000000000000C2 /* KokoroCoreML */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D0DA5A0100000000000000C1 /* XCRemoteSwiftPackageReference "kokoro-coreml" */;
+			productName = KokoroCoreML;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

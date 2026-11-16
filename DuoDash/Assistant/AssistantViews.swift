@@ -28,6 +28,8 @@ struct AssistantButton: View {
 /// MapsView adds this as one overlay.
 struct AssistantOverlay: View {
     @Environment(AssistantModel.self) private var assistant
+    /// Extra leading space for the button, to clear a side panel on short windows.
+    var buttonLeading: CGFloat = 0
 
     var body: some View {
         @Bindable var assistant = assistant
@@ -43,6 +45,7 @@ struct AssistantOverlay: View {
                 } else {
                     AssistantButton()
                         .padding(12)
+                        .padding(.leading, buttonLeading)
                         // Clear of the Apple Maps logo and Legal link, which must stay visible.
                         .padding(.bottom, 30)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)

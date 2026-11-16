@@ -10,12 +10,18 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
 
     /// Called on every fix. NavigationModel uses this to track progress along a route.
     @ObservationIgnored var onUpdate: (@MainActor (CLLocation) -> Void)?
+    /// Further listeners (dashcam GPS track, Home arrival, calendar search bias).
+    @ObservationIgnored private var listeners: [@MainActor (CLLocation) -> Void] = []
+    func addListener(_ listener: @escaping @MainActor (CLLocation) -> Void) { listeners.append(listener) }
 
     private let manager: CLLocationManager
+    /// False in unit tests: fixes come only from the test, never from the device's GPS.
+    private let live: Bool
 
-    override init() {
+    init(live: Bool = true) {
         let manager = CLLocationManager()
         self.manager = manager
+        self.live = live
         authorization = manager.authorizationStatus
         super.init()
         manager.delegate = self
@@ -30,6 +36,7 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
     }
 
     func start() {
+        guard live else { return }
         if authorization == .notDetermined {
             manager.requestWhenInUseAuthorization()
         }
@@ -55,6 +62,7 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
         MainActor.assumeIsolated {
             location = latest
             onUpdate?(latest)
+            for listener in listeners { listener(latest) }
         }
     }
 
@@ -62,7 +70,7 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
         let status = manager.authorizationStatus
         MainActor.assumeIsolated {
             authorization = status
-            if isAuthorized { self.manager.startUpdatingLocation() }
+            if isAuthorized && live { self.manager.startUpdatingLocation() }
         }
     }
 

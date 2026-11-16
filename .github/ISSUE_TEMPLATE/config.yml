@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Install guide
+    url: https://github.com/yashpatilian/duo-dash/blob/HEAD/docs/INSTALL.md
+    about: Step-by-step install, updating and troubleshooting. Most setup questions are answered here.
+  - name: Report a security vulnerability
+    url: https://github.com/yashpatilian/duo-dash/blob/HEAD/SECURITY.md
+    about: Please report security problems privately, not as a public issue.

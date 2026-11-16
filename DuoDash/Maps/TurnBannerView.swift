@@ -89,3 +89,64 @@ struct TripSummaryView: View {
         return "\(minutes / 60) h \(minutes % 60) min"
     }
 }
+
+/// Guidance for small windows (cover screen in either orientation, phones): one slim
+/// glass card, so the map stays visible. Line 1: arrow, distance, instruction.
+/// Line 2: arrival · time · distance (or the next stop), and a small End button.
+struct CompactGuidanceCard: View {
+    @Environment(NavigationModel.self) private var navigation
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: navigation.state == .arrived ? "flag.checkered" : navigation.maneuverSymbol)
+                .font(.system(size: 30, weight: .bold))
+                .foregroundStyle(Theme.accent)
+                .frame(width: 40)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    if navigation.state == .arrived {
+                        Text("Arrived").font(.dashTitle)
+                    } else {
+                        Text(DistanceText.display(navigation.distanceToManeuver))
+                            .font(.dashTitle)
+                            .monospacedDigit()
+                            .contentTransition(.numericText())
+                            .fixedSize()
+                            .accessibilityIdentifier("nav.distance")
+                    }
+                    Text(navigation.maneuverInstruction)
+                        .font(.dashBody)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .accessibilityIdentifier("nav.instruction")
+                }
+                Text(secondLine)
+                    .font(.dashCaption)
+                    .foregroundStyle(navigation.isRerouting ? Theme.warning : Theme.textSecondary)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .accessibilityIdentifier(navigation.stopProgressText != nil ? "nav.stop" : "nav.summary")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            DashIconButton(symbol: navigation.state == .arrived ? "checkmark" : "xmark",
+                           tint: Theme.danger, label: navigation.state == .arrived ? "Done" : "End",
+                           identifier: "nav.end") {
+                navigation.end()
+            }
+        }
+        .padding(.leading, 12)
+        .padding(.trailing, 6)
+        .padding(.vertical, 6)
+    }
+
+    /// "9:17 pm · 23 min · 28 km", or the next stop, or rerouting.
+    private var secondLine: String {
+        if navigation.isRerouting { return "Rerouting…" }
+        if let stop = navigation.stopProgressText { return stop }
+        let eta = navigation.eta.map { $0.formatted(.dateTime.hour().minute()) } ?? "--"
+        return "\(eta) · \(TripSummaryView.duration(navigation.remainingTime)) · \(DistanceText.display(navigation.remainingDistance))"
+    }
+}

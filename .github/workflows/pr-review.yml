@@ -1,0 +1,180 @@
+name: PR review (agent)
+
+# Claude reviews pull requests that the build agent opened (called from agent-fix.yml,
+# or on later pushes to agent/* branches) and any PR a maintainer labels `agent`.
+# It posts one comment and never approves, requests changes or merges.
+# No Xcode CI here on purpose: the owner builds and tests on his Mac (the PR lists the
+# commands). See docs/AGENT_PIPELINE.md.
+#
+# Security model:
+# - Uses `pull_request`, never `pull_request_target`: PRs from forks get no secrets and
+#   are skipped. Only same-repository branches (people with write access) are reviewed.
+# - The Claude job has a READ-ONLY token and read-only tools; it only reads the PR's
+#   files, it never builds or runs them. Its prompt comes from the default branch, not
+#   from the PR.
+# - A separate job with no API key posts the sanitised review comment.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  workflow_call:
+    inputs:
+      pr_number:
+        description: Pull request to review
+        type: number
+        required: true
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: false
+
+permissions: {}
+
+jobs:
+  gate:
+    if: vars.AGENT_PIPELINE != 'off'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+      pr: ${{ steps.decide.outputs.pr }}
+    steps:
+      - name: Decide whether to review
+        id: decide
+        env:
+          HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+          CALLED_PR: ${{ inputs.pr_number }}
+          ACTION: ${{ github.event.action }}
+          LABEL: ${{ github.event.label.name }}
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -uo pipefail
+          skip() { echo "::notice title=PR review skipped::$1"; echo "run=false" >> "$GITHUB_OUTPUT"; exit 0; }
+          [ "$HAS_KEY" = "true" ] || skip "ANTHROPIC_API_KEY secret is not set (or this is a fork PR, which gets no secrets). See docs/AGENT_PIPELINE.md."
+          if [ -n "$CALLED_PR" ]; then
+            pr="$CALLED_PR"
+          else
+            [ "$HEAD_REPO" = "$REPO" ] || skip "PRs from forks are not reviewed by the agent."
+            labelled=$(jq -r 'index("agent") != null' <<<"${LABELS:-[]}")
+            case "$HEAD_REF" in agent/*) from_agent=true ;; *) from_agent=false ;; esac
+            [ "$labelled" = "true" ] || [ "$from_agent" = "true" ] || skip "Not an agent PR and not labelled 'agent'."
+            if [ "$ACTION" = "labeled" ] && [ "$LABEL" != "agent" ]; then skip "Another label was added."; fi
+            pr="$PR"
+          fi
+          [[ "$pr" =~ ^[0-9]+$ ]] || skip "No pull request number."
+          echo "pr=$pr" >> "$GITHUB_OUTPUT"
+          echo "run=true" >> "$GITHUB_OUTPUT"
+
+  review:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: pr-review-${{ needs.gate.outputs.pr }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+    outputs:
+      result: ${{ steps.claude.outputs.structured_output }}
+    steps:
+      - name: Check out the PR (read only, never built or run)
+        uses: actions/checkout@v7
+        with:
+          ref: refs/pull/${{ needs.gate.outputs.pr }}/head
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Check out the agent prompts from the default branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: .agent-base
+          sparse-checkout: .github/agent
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Build the prompt
+        id: prompt
+        env:
+          REPO: ${{ github.repository }}
+          PR: ${{ needs.gate.outputs.pr }}
+        run: |
+          {
+            echo 'text<<DUO_DASH_PROMPT_END'
+            cat .agent-base/.github/agent/house-rules.md
+            echo
+            cat .agent-base/.github/agent/review.md
+            printf '\n## This run\n- Repository: %s\n- Pull request number: %s\n' "$REPO" "$PR"
+            printf -- '- Ignore the `.agent-base/` folder; it holds these instructions, not the PR.\n'
+            echo 'DUO_DASH_PROMPT_END'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Review with Claude
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          prompt: ${{ steps.prompt.outputs.text }}
+          claude_args: |
+            --model claude-opus-5-5
+            --max-turns 30
+            --permission-mode default
+            --allowedTools "Read,Glob,Grep,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh issue view:*),Bash(git log:*),Bash(git diff:*)"
+            --disallowedTools "Edit,MultiEdit,Write,NotebookEdit,WebFetch,WebSearch,Bash(gh pr review:*),Bash(gh pr merge:*),Bash(gh pr comment:*),Bash(gh pr edit:*),Bash(gh api:*),Bash(curl:*),Bash(wget:*)"
+            --json-schema '{"type":"object","additionalProperties":false,"required":["verdict","review_markdown","suspicious","notes"],"properties":{"verdict":{"type":"string","enum":["looks_good","changes_suggested","needs_human"]},"review_markdown":{"type":"string"},"suspicious":{"type":"boolean"},"notes":{"type":"string"}}}'
+
+  post:
+    needs: [gate, review]
+    if: needs.review.outputs.result != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Post or update the review comment
+        env:
+          RESULT: ${{ needs.review.outputs.result }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ needs.gate.outputs.pr }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          jq -e . >/dev/null <<<"$RESULT" || { echo "::error::Agent output is not JSON"; exit 1; }
+          printf '%s' "$RESULT" > "$RUNNER_TEMP/result.json"
+          python3 -I - "$RUNNER_TEMP/result.json" "$RUNNER_TEMP/body.md" "$RUN_URL" <<'PY'
+          import json, re, sys
+          src, dst, run = sys.argv[1:4]
+          r = json.load(open(src, encoding="utf-8"))
+          if r.get("suspicious"):
+              text = ("The review agent flagged content in this pull request as possibly trying to "
+                      "steer it, so it is not posting a review. Please review this one by hand.")
+              head = "Needs a human"
+          else:
+              text = str(r.get("review_markdown", ""))[:9000]
+              text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
+              text = re.sub(r"(?<![\w`])@(?=[A-Za-z0-9-])", "@​", text)
+              text = re.sub(r"(?m)^\s*/agent", "`/agent`", text).strip() or "(empty review)"
+              head = {"looks_good": "Looks good to the agent",
+                      "changes_suggested": "Changes suggested",
+                      "needs_human": "Needs a human"}.get(r.get("verdict"), "Review")
+          body = (f"<!-- duo-dash-review -->\n### Agent review: {head}\n\n{text}\n\n---\n"
+                  f"<sub>Automated review by Claude ([run]({run})). It read the code but did not build "
+                  "or run it. It can't approve or merge; the maintainer decides.</sub>\n")
+          open(dst, "w", encoding="utf-8").write(body)
+          PY
+          existing=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | contains("<!-- duo-dash-review -->"))) | .id' | tail -n 1)
+          if [ -n "$existing" ]; then
+            jq -Rs '{body: .}' "$RUNNER_TEMP/body.md" | gh api -X PATCH "repos/$REPO/issues/comments/$existing" --input - >/dev/null
+          else
+            jq -Rs '{body: .}' "$RUNNER_TEMP/body.md" | gh api -X POST "repos/$REPO/issues/$PR/comments" --input - >/dev/null
+          fi

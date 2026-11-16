@@ -6,6 +6,7 @@ struct RootView: View {
     @Environment(LocationManager.self) private var location
     @Environment(NavigationModel.self) private var navigation
     @Environment(AppleMusicModel.self) private var music
+    @Environment(OnboardingModel.self) private var onboarding
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -29,17 +30,31 @@ struct RootView: View {
         .background { DashBackground() }
         .foregroundStyle(Theme.textPrimary)
         .overlay(alignment: .bottom) { DictationErrorBanner() }
+        // "Open garage?" when arriving home (HomeKit).
+        .overlay(alignment: .top) { ArrivalBanner().padding(.top, 8) }
         .overlay {
             if app.showScreenInfo {
                 ScreenInfoView()
             }
+        }
+        // The welcome tour (first launch, or replayed from Settings → About).
+        .overlay {
+            if onboarding.isPresented {
+                OnboardingView().transition(.opacity)
+            }
+        }
+        .animation(.snappy(duration: 0.35), value: onboarding.isPresented)
+        // The tour asks for Location itself; once it's over, start as usual.
+        .onChange(of: onboarding.isPresented) { _, showing in
+            if !showing { location.start() }
         }
         .onChange(of: scenePhase, initial: true) { _, phase in
             switch phase {
             case .active:
                 // Keep the display on for as long as the app is in front.
                 UIApplication.shared.isIdleTimerDisabled = true
-                location.start()
+                // During the welcome tour, Location is asked for on its permissions page.
+                if !onboarding.isPresented || location.authorization != .notDetermined { location.start() }
                 music.refreshFromPlayer()
             case .background:
                 UIApplication.shared.isIdleTimerDisabled = false
@@ -51,13 +66,19 @@ struct RootView: View {
         }
     }
 
-    private func shell(_ metrics: DashMetrics) -> some View {
-        ShellLayout(sidebar: metrics.usesSidebar, dockThickness: metrics.dockThickness, spacing: 0) {
+    /// Big screens (iPad) lay out at a phone-like size and are scaled up as a whole, the way
+    /// CarPlay scales to the car's display, so nothing looks lost in empty space.
+    private func shell(_ window: DashMetrics) -> some View {
+        let metrics = window.scaledForDisplay()
+        return ShellLayout(sidebar: metrics.usesSidebar, dockThickness: metrics.dockThickness, spacing: 0) {
             DockView()
             MainColumn()
         }
         .environment(\.dashMetrics, metrics)
         .animation(.snappy(duration: 0.25), value: metrics.usesSidebar)
+        .frame(width: metrics.size.width, height: metrics.size.height)
+        .scaleEffect(metrics.scale, anchor: .topLeading)
+        .frame(width: window.size.width, height: window.size.height, alignment: .topLeading)
     }
 }
 
@@ -96,6 +117,7 @@ struct ShellLayout: Layout {
 /// Status (compact only), the screens, and the now-playing bar.
 struct MainColumn: View {
     @Environment(AppModel.self) private var app
+    @Environment(NavigationModel.self) private var navigation
     @Environment(\.dashMetrics) private var metrics
 
     var body: some View {
@@ -121,7 +143,7 @@ struct MainColumn: View {
 
             // The dashboard has its own media widget (like CarPlay), and the full
             // player replaces the mini bar (like Apple Music).
-            if app.selected != .home && !(app.selected == .music && app.isPlayerOpen) {
+            if (app.selected != .home || app.showsAppGrid) && !(app.selected == .music && app.isPlayerOpen) {
                 NowPlayingBar()
             }
         }
@@ -147,11 +169,32 @@ struct MainColumn: View {
                 PhoneView()
             case .messages:
                 MessagesView()
+            case .calendar:
+                CalendarScreen(onNavigate: { item in navigation.go(to: item); app.open(.maps) })
+            case .weather:
+                WeatherScreen()
+            case .car:
+                CarScreen()
+            case .homekit:
+                HomeScreen()
+            case .dashcam:
+                DashcamScreen()
             case .settings:
                 SettingsView()
             }
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("screen.\(item.rawValue)")
+        // A tiny marker element names the screen for UI tests. Wrapping the screen in its own
+        // accessibility container instead would merge with each app's root and overwrite the
+        // app's own identifiers (e.g. homekit.screen, calendar.screen).
+        .overlay(alignment: .topLeading) {
+            if app.selected == item {
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityElement()
+                .accessibilityLabel(item.title)
+                .accessibilityIdentifier("screen.\(item.rawValue)")
+                .allowsHitTesting(false)
+            }
+        }
     }
 }

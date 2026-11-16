@@ -107,7 +107,7 @@ struct FavouriteTile: View {
                         }
                     }
                 Text(firstName)
-                    .font(.dashCaption)
+                    .font(avatarSize >= 110 ? .dashBody : .dashCaption)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                     .frame(maxWidth: avatarSize + 24)
@@ -134,7 +134,9 @@ struct FavouritesGrid: View {
     var idPrefix: String
     var badge: String
     var emptyMessage: String
+    var recentKind: RecentEntry.Kind
     let onTap: (FavouriteContact) -> Void
+    var onRecent: (RecentEntry) -> Void = { _ in }
 
     @State private var editing = false
 
@@ -156,23 +158,57 @@ struct FavouritesGrid: View {
         }
     }
 
-    private var avatar: CGFloat { metrics.isCompact ? 80 : 96 }
+    /// Avatars grow to fill the width: up to five across, never smaller than the old fixed size.
+    private func layout(width: CGFloat, height: CGFloat) -> (columns: Int, avatar: CGFloat) {
+        let count = contacts.favourites.count + 1                      // + the add tile
+        let fit = max(3, Int(width / 150))                             // ~150 pt per tile at most density
+        let columns = max(3, min(5, min(count, fit)))
+        let tile = (width - CGFloat(columns - 1) * 12) / CGFloat(columns)
+        let floor: CGFloat = metrics.isCompact ? 80 : 96
+        // Short windows (phone landscape): a row of tiles must leave room below for the edit button.
+        let byHeight = (height - Theme.minTouch - 40) * 0.62
+        return (columns, max(floor, min(150, tile - 28, byHeight)))
+    }
 
     private var grid: some View {
-        ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: avatar + 26), spacing: 12)], spacing: 18) {
-                ForEach(Array(contacts.favourites.enumerated()), id: \.element.id) { index, fav in
-                    FavouriteTile(favourite: fav, avatarSize: avatar, badge: badge,
-                                  identifier: "\(idPrefix).fav.\(index)") { onTap(fav) }
-                        .contextMenu {
-                            Button("Remove", systemImage: "star.slash", role: .destructive) {
-                                contacts.removeFavourite(id: fav.id)
+        GeometryReader { proxy in
+            let (columns, avatar) = layout(width: proxy.size.width - Theme.minTouch, height: proxy.size.height)
+            let recents = Array(contacts.recents(of: recentKind).prefix(proxy.size.height > 560 ? 4 : 2))
+            let showsRecents = !recents.isEmpty && proxy.size.height > 380
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: columns), spacing: 18) {
+                        ForEach(Array(contacts.favourites.enumerated()), id: \.element.id) { index, fav in
+                            FavouriteTile(favourite: fav, avatarSize: avatar, badge: badge,
+                                          identifier: "\(idPrefix).fav.\(index)") { onTap(fav) }
+                                .contextMenu {
+                                    Button("Remove", systemImage: "star.slash", role: .destructive) {
+                                        contacts.removeFavourite(id: fav.id)
+                                    }
+                                }
+                        }
+                        addTile(avatar: avatar)
+                    }
+                    if showsRecents {
+                        VStack(alignment: .leading, spacing: Theme.gap) {
+                            Text("Recent").font(.dashTitle)
+                            ForEach(Array(recents.enumerated()), id: \.element.id) { index, entry in
+                                ListRow(title: entry.name.isEmpty ? entry.number : entry.name,
+                                        subtitle: entry.date.formatted(.relative(presentation: .named)),
+                                        identifier: "\(idPrefix).favrecent.\(index)") {
+                                    ContactAvatar(name: entry.name, thumbnail: contacts.thumbnail(for: entry.recipient), size: 44)
+                                } action: {
+                                    onRecent(entry)
+                                }
                             }
                         }
+                        .padding(.trailing, Theme.minTouch + 8)          // keep clear of the edit button
+                    }
                 }
-                addTile
+                .padding(.vertical, 12)
+                // With little to show, sit in the middle rather than stuck to the top.
+                .frame(minHeight: showsRecents ? nil : proxy.size.height - Theme.minTouch, alignment: .center)
             }
-            .padding(.vertical, 12)
         }
         .overlay(alignment: .bottomTrailing) {
             DashIconButton(symbol: "pencil", label: "Edit favourites", identifier: "\(idPrefix).edit") {
@@ -182,7 +218,7 @@ struct FavouritesGrid: View {
         }
     }
 
-    private var addTile: some View {
+    private func addTile(avatar: CGFloat) -> some View {
         Button { addFavourite() } label: {
             VStack(spacing: 8) {
                 Image(systemName: "plus")
@@ -190,7 +226,7 @@ struct FavouritesGrid: View {
                     .foregroundStyle(Theme.accent)
                     .frame(width: avatar, height: avatar)
                     .background(Theme.surface, in: Circle())
-                Text("Add").font(.dashCaption).foregroundStyle(Theme.textSecondary)
+                Text("Add").font(avatar >= 110 ? .dashBody : .dashCaption).foregroundStyle(Theme.textSecondary)
             }
             .contentShape(Rectangle())
         }

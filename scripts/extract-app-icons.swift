@@ -12,9 +12,12 @@ let apps: [(asset: String, paths: [String])] = [
     ("AppIconMessages", ["/System/Applications/Messages.app"]),
     ("AppIconSpotify", ["/Applications/Spotify.app"]),
     ("AppIconSettings", ["/System/Applications/System Settings.app"]),
+    ("AppIconCalendar", ["/System/Applications/Calendar.app"]),
+    ("AppIconHome", ["/System/Applications/Home.app"]),
+    ("AppIconWeather", ["/System/Applications/Weather.app"]),
 ]
 
-let root = URL(fileURLWithPath: CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "DuoDash/Assets.xcassets")
+let root = URL(fileURLWithPath: CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "DuoDash/BrandedIcons.xcassets")
 let side = 360  // px; tiles are at most ~66 pt @3x = 198 px
 // macOS icons sit on a 1024 grid with a 100 px margin; crop to the squircle itself.
 let inset = 100.0 / 1024.0

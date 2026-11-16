@@ -39,7 +39,7 @@ final class DuoDashUITests: XCTestCase {
             let alert = springboard.alerts.firstMatch
             guard alert.waitForExistence(timeout: 2) else { return }
             for label in ["Allow While Using App", "Allow Once", "Allow", "OK"] {
-                let button = alert.buttons[label]
+                let button = alert.buttons[label].firstMatch
                 if button.exists { button.tap(); break }
             }
         }
@@ -49,24 +49,15 @@ final class DuoDashUITests: XCTestCase {
 
     /// The dock keeps full-size icons and scrolls, so an icon may be off-screen.
     private func scrollDockToReveal(_ button: XCUIElement) {
-        let strip = app.scrollViews["dock.scroll"]
-        guard strip.exists else { return }
-        for attempt in 0..<6 where !button.isHittable {
-            // Sweep one way, then the other.
-            let forward = attempt < 3
-            let start = strip.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            let isVertical = strip.frame.height > strip.frame.width
-            let delta = isVertical ? CGVector(dx: 0, dy: forward ? -150 : 150) : CGVector(dx: forward ? -150 : 150, dy: 0)
-            start.press(forDuration: 0.01, thenDragTo: start.withOffset(delta))
-        }
+        app.revealInDock(button)
     }
 
     private func open(_ id: String, file: StaticString = #filePath, line: UInt = #line) {
         let button = dock(id)
+        // Home is a toggle (Dashboard / app grid): already there means nothing to do.
+        if id == "home", button.exists, button.isSelected, app.descendants(matching: .any)["screen.home"].exists { return }
         XCTAssertTrue(button.waitForExistence(timeout: 5), "dock.\(id) missing", file: file, line: line)
-        scrollDockToReveal(button)
-        XCTAssertTrue(button.isHittable, "dock.\(id) not hittable", file: file, line: line)
-        button.tap()
+        app.tapDockButton(button)
         XCTAssertTrue(app.descendants(matching: .any)["screen.\(id)"].waitForExistence(timeout: 5),
                       "screen.\(id) did not show", file: file, line: line)
         XCTAssertTrue(button.isSelected, "dock.\(id) not selected", file: file, line: line)
@@ -112,8 +103,10 @@ final class DuoDashUITests: XCTestCase {
         // A page left open on this tab: go back to the list first.
         let back = app.buttons["music.detail.back"]
         if back.exists { back.tap() }
-        let rowButton = app.buttons["music.row.\(row)"]
-        XCTAssertTrue(rowButton.waitForExistence(timeout: 5), "playlist row \(row) missing", file: file, line: line)
+        let rows = app.buttons.matching(identifier: "music.row.\(row)")
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 5), "playlist row \(row) missing", file: file, line: line)
+        // Tap the one on screen (the id can appear in more than one section).
+        let rowButton = rows.allElementsBoundByIndex.first { !$0.frame.isEmpty && $0.isHittable } ?? rows.firstMatch
         rowButton.tap()
         XCTAssertTrue(musicDetail.waitForExistence(timeout: 5), "playlist page did not open", file: file, line: line)
         XCTAssertTrue(app.buttons["music.detail.play"].waitForExistence(timeout: 5), "playlist songs did not load", file: file, line: line)

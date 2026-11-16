@@ -1,0 +1,54 @@
+name: Feature request
+description: Suggest something Duo Dash should do.
+title: "[Feature]: "
+labels: ["feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Duo Dash is a personal project, so not every idea will be built. Ideas that fit a
+        dash-mounted phone and are safe to use while driving have the best chance. Please
+        check the [Roadmap](https://github.com/yashpatilian/duo-dash/blob/HEAD/README.md#roadmap) and
+        [what iOS doesn't allow](https://github.com/yashpatilian/duo-dash/blob/HEAD/README.md#what-ios-doesnt-allow-and-what-duo-dash-does-instead) first.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: What are you trying to do in the car today, and what gets in the way?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you'd like Duo Dash to do
+      description: Describe how it would look and work. Sketches or screenshots welcome.
+    validations:
+      required: true
+  - type: dropdown
+    id: screens
+    attributes:
+      label: Which screens does it matter on?
+      multiple: true
+      options:
+        - Folded (cover screen)
+        - Unfolded (inner screen)
+        - Half-open
+        - Split View / Stage Manager
+        - Other iPhone
+        - iPad
+        - All of them
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've tried
+    validations:
+      required: false
+  - type: checkboxes
+    id: driving
+    attributes:
+      label: Driving safety
+      options:
+        - label: This can be used with a glance or by voice, without fiddly interaction while driving.
+          required: false

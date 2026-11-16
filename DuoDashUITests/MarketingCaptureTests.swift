@@ -6,7 +6,9 @@ import CoreLocation
 /// Uses sample data only (demo music, sample contacts and places around Apple Park).
 final class MarketingCaptureTests: XCTestCase {
     /// The unfolded iPhone Duo's inner screen, in points (landscape).
-    private let inner = "960x680"
+    private let inner = "951x669"   // the Duo's inner screen in points (2853×2007 px @3x)
+    /// NATIVE=1: the simulator is unfolded, so capture the real inner screen at full resolution.
+    private var innerCanvas: String? { ProcessInfo.processInfo.environment["NATIVE"] == "1" ? nil : inner }
     private var app: XCUIApplication!
 
     override func setUpWithError() throws {
@@ -16,7 +18,10 @@ final class MarketingCaptureTests: XCTestCase {
     }
 
     private func launch(_ extra: [String] = [], canvas: String?, landscape: Bool = true) {
-        XCUIDevice.shared.orientation = landscape ? .landscapeLeft : .portrait
+        // Only rotate a real (unfolded) Duo; on other simulators the canvas already has the Duo's
+        // size and an upright device keeps element screenshots upright.
+        let native = ProcessInfo.processInfo.environment["NATIVE"] == "1"
+        XCUIDevice.shared.orientation = landscape && native ? .landscapeLeft : .portrait
         app = XCUIApplication()
         app.launchArguments = ["-UITest", "-ResetState", "-SeedContacts", "-SeedPlaces", "-Capture", "-AssistantLocal"] + extra
         if let canvas { app.launchEnvironment["DUODASH_CANVAS"] = canvas }
@@ -34,16 +39,9 @@ final class MarketingCaptureTests: XCTestCase {
 
     private func open(_ id: String) {
         let button = app.buttons["dock.\(id)"]
-        let strip = app.scrollViews["dock.scroll"]
-        var tries = 0
-        while !button.isHittable && tries < 6 && strip.exists {
-            let c = strip.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            let vertical = strip.frame.height > strip.frame.width
-            c.press(forDuration: 0.01, thenDragTo: c.withOffset(vertical ? CGVector(dx: 0, dy: tries < 3 ? -150 : 150)
-                                                                         : CGVector(dx: tries < 3 ? -150 : 150, dy: 0)))
-            tries += 1
-        }
-        button.tap()
+        // Home is a toggle (Dashboard / app grid): already there means nothing to do.
+        if id == "home", button.exists, button.isSelected, app.descendants(matching: .any)["screen.home"].exists { return }
+        app.tapDockButton(button)
         _ = app.descendants(matching: .any)["screen.\(id)"].waitForExistence(timeout: 5)
     }
 
@@ -71,11 +69,15 @@ final class MarketingCaptureTests: XCTestCase {
     }
 
     func testCaptureUnfolded() {
-        launch(canvas: inner)
+        launch(canvas: innerCanvas)
         playFavourites()
         shot("music-player")
         open("home")
         shot("home-unfolded")
+        // CarPlay's Home screen: the dock's bottom button switches to the app grid and back.
+        app.buttons["dock.home"].tap()
+        if app.descendants(matching: .any)["home.grid"].waitForExistence(timeout: 3) { shot("home-grid") }
+        app.buttons["dock.home"].tap()
         open("phone")
         shot("phone")
         open("messages")
@@ -93,7 +95,7 @@ final class MarketingCaptureTests: XCTestCase {
     }
 
     func testCaptureAssistantAndRoute() {
-        launch(["-AssistantTranscript", "I want to go to Stanford University but stop for petrol on the way"], canvas: inner)
+        launch(["-AssistantTranscript", "I want to go to Stanford University but stop for petrol on the way"], canvas: innerCanvas)
         playFavourites()
         open("maps")
         app.buttons["assistant.open"].firstMatch.tap()
@@ -109,8 +111,42 @@ final class MarketingCaptureTests: XCTestCase {
         shot("home-guiding", settle: 2)
     }
 
+    /// The newer apps: Weather (sunny demo sky), Car (demo OBD data), Dashcam, Calendar, Home.
+    func testCaptureNewApps() {
+        launch(["-DemoWeatherSky", "clear", "-DemoCar"], canvas: innerCanvas)
+        playFavourites()
+        for (id, name) in [("weather", "weather"), ("car", "car"), ("dashcam", "dashcam"),
+                           ("calendar", "calendar"), ("homekit", "home-control")] {
+            open(id)
+            // Show the dashcam recording (the demo recorder in the Simulator).
+            if id == "dashcam", app.buttons["dashcam.startHint"].waitForExistence(timeout: 3) {
+                app.buttons["dashcam.startHint"].tap()
+            }
+            shot(name, settle: 3)
+        }
+    }
+
+    /// Guidance while folded: the cover screen in portrait and in landscape.
+    func testCaptureFoldedGuidance() {
+        for canvas in ["466x678", "678x466"] {
+            launch(["-AssistantTranscript", "take me to Stanford University"], canvas: canvas)
+            playFavourites()
+            open("maps")
+            // Screens stay alive while hidden, so pick the Assistant button that's on screen.
+            app.buttons.matching(identifier: "assistant.open").allElementsBoundByIndex.first { $0.isHittable }?.tap()
+            let start = app.buttons["assistant.plan.start"]
+            if start.waitForExistence(timeout: 45) { start.tap() }
+            XCTAssertTrue(app.descendants(matching: .any)["nav.banner"].waitForExistence(timeout: 20), "no guidance (network?)")
+            _ = app.buttons["assistant.open"].waitForExistence(timeout: 8)
+            shot("guide-\(canvas)", settle: 3)
+            open("home")
+            shot("guide-home-\(canvas)", settle: 2)
+            app.terminate()
+        }
+    }
+
     func testCaptureSpotify() {
-        launch(["-DemoSpotify"], canvas: inner)
+        launch(["-DemoSpotify"], canvas: innerCanvas)
         open("spotify")
         let connect = app.buttons["spotify.connect"]
         if connect.waitForExistence(timeout: 5) { connect.tap() }
@@ -127,7 +163,8 @@ final class MarketingCaptureTests: XCTestCase {
     }
 
     func testCaptureFolded() {
-        launch(canvas: nil, landscape: false)
+        // On an unfolded Duo simulator use the real cover screen; elsewhere the cover's size in points.
+        launch(canvas: ProcessInfo.processInfo.environment["NATIVE"] == "1" ? nil : "466x678", landscape: false)
         playFavourites()
         open("home")
         shot("folded")

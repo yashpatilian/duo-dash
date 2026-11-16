@@ -51,7 +51,7 @@ final class AssistantUITests: XCTestCase {
     }
 
     func testAssistantPlansAndStartsARouteFromATranscript() throws {
-        launch(transcript: "take me to Apple Park Visitor Center")
+        launch(transcript: "take me to Stanford University")
         let open = app.buttons["assistant.open"]
         XCTAssertTrue(open.waitForExistence(timeout: 5), "assistant button missing on Maps")
         XCTAssertTrue(open.isHittable)
@@ -78,7 +78,7 @@ final class AssistantUITests: XCTestCase {
         XCTAssertTrue(banner.exists || plan.exists, "no route preview or guidance appeared")
         if banner.exists {
             let reply = app.staticTexts["assistant.reply"]
-            if reply.exists { XCTAssertTrue(reply.label.contains("Apple Park"), reply.label) }
+            if reply.exists { XCTAssertTrue(reply.label.contains("Stanford"), reply.label) }
             // The panel steps aside so the turn banner is visible.
             XCTAssertTrue(app.buttons["assistant.open"].waitForExistence(timeout: 8), "panel didn't get out of the way")
             app.buttons["nav.end"].tap()

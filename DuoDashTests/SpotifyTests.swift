@@ -205,4 +205,21 @@ final class SpotifyModelTests: XCTestCase {
         await waitUntil { spotify.status != .connected }
         XCTAssertEqual(nowPlaying.source, .appleMusic)
     }
+
+    /// App Remote doesn't flag playlists or albums as containers; tapping them must still
+    /// open their page (the bug: Recents and playlists played instead of opening).
+    func testPlaylistsAndAlbumsOpenTracksPlay() {
+        func item(_ uri: String, container: Bool = false) -> SpotifyItem {
+            SpotifyItem(identifier: uri, uri: uri, title: "x", isContainer: container)
+        }
+        XCTAssertTrue(item("spotify:playlist:37i9dQZF1DXcBWIGoYBM5M").opensAsPage)
+        XCTAssertTrue(item("spotify:user:someone:playlist:abc").opensAsPage)
+        XCTAssertTrue(item("spotify:album:4aawyAB9vmqN3uQ7FjRGTy").opensAsPage)
+        XCTAssertTrue(item("spotify:artist:0OdUWJ0sBjDrqHygGUXeCF").opensAsPage)
+        XCTAssertTrue(item("spotify:user:someone:collection").opensAsPage)
+        XCTAssertTrue(item("spotify:show:abc").opensAsPage)
+        XCTAssertFalse(item("spotify:track:11dFghVXANMlKmJXsNCbNl").opensAsPage)
+        XCTAssertFalse(item("spotify:episode:abc").opensAsPage)
+        XCTAssertTrue(item("section:recent", container: true).opensAsPage)
+    }
 }

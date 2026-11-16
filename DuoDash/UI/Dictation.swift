@@ -1,10 +1,11 @@
 import SwiftUI
-import Speech
-import AVFoundation
 
 /// Voice-to-text for every text field in the app (one microphone at a time).
 /// Speech streams into the field as it's recognised; it stops by itself after a
 /// short pause, or when the button is tapped again. Music is ducked, not paused.
+///
+/// The recogniser comes from `SpeechCenter`: Whisper on-device once its model is
+/// downloaded, Apple's Speech framework otherwise (and if Whisper fails to start).
 @MainActor
 @Observable
 final class Dictation {
@@ -12,121 +13,111 @@ final class Dictation {
 
     /// The field currently listening, if any.
     private(set) var activeID: UUID?
+    /// The engine listening right now.
+    private(set) var activeEngine: SpeechRecognizerKind?
     var errorMessage: String?
 
     var isListening: Bool { activeID != nil }
 
-    @ObservationIgnored private let engine = AVAudioEngine()
-    @ObservationIgnored private var request: SFSpeechAudioBufferRecognitionRequest?
-    @ObservationIgnored private var task: SFSpeechRecognitionTask?
+    @ObservationIgnored var center: SpeechCenter = .shared
+    @ObservationIgnored private var engine: SpeechRecognizerEngine?
+    @ObservationIgnored private var onText: ((String) -> Void)?
     @ObservationIgnored private var onFinish: ((String) -> Void)?
-    @ObservationIgnored private var silenceTask: Task<Void, Never>?
     @ObservationIgnored private var latest = ""
+    @ObservationIgnored private var finishTimeout: Task<Void, Never>?
 
-    /// How long a pause ends the dictation.
-    var silenceTimeout: Duration = .seconds(1.6)
+    /// Longest wait for the final text after the mic stops (Whisper's last pass).
+    @ObservationIgnored var finishTimeoutDuration: Duration = .seconds(8)
 
     /// Starts listening for `id`, or stops if that field is already listening.
     func toggle(id: UUID, onText: @escaping (String) -> Void, onFinish: @escaping (String) -> Void) async {
         if activeID == id { finish(); return }
         if activeID != nil { finish() }
 
-        guard await Self.authorize() else {
-            errorMessage = "Turn on Microphone and Speech Recognition for Duo Dash in Settings to use voice input."
-            return
-        }
-        guard let recognizer = SFSpeechRecognizer(locale: .current) ?? SFSpeechRecognizer(locale: Locale(identifier: "en-AU")),
-              recognizer.isAvailable else {
-            errorMessage = "Voice input isn't available right now."
-            return
-        }
-
+        var engine = center.recognizer()
+        activeID = id
+        activeEngine = engine.kind
+        self.engine = engine
+        self.onText = onText
+        self.onFinish = onFinish
+        latest = ""
         do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .measurement,
-                                    options: [.duckOthers, .defaultToSpeaker, .allowBluetoothHFP])
-            try session.setActive(true, options: .notifyOthersOnDeactivation)
-
-            let request = SFSpeechAudioBufferRecognitionRequest()
-            request.shouldReportPartialResults = true
-            request.addsPunctuation = true
-            if recognizer.supportsOnDeviceRecognition { request.requiresOnDeviceRecognition = true }
-
-            let input = engine.inputNode
-            input.removeTap(onBus: 0)
-            input.installTap(onBus: 0, bufferSize: 1024, format: input.outputFormat(forBus: 0)) { buffer, _ in
-                request.append(buffer)
-            }
-            engine.prepare()
-            try engine.start()
-
-            self.request = request
-            self.onFinish = onFinish
-            self.latest = ""
-            self.activeID = id
-            armSilenceTimer()
-
-            task = recognizer.recognitionTask(with: request) { [weak self] result, error in
-                let text = result?.bestTranscription.formattedString
-                let isFinal = result?.isFinal ?? false
-                Task { @MainActor [weak self] in
-                    guard let self, self.activeID == id else { return }
-                    if let text, !text.isEmpty {
-                        self.latest = text
-                        onText(text)
-                        self.armSilenceTimer()
-                    }
-                    if isFinal || error != nil { self.finish() }
-                }
-            }
+            try await start(engine, id: id)
+        } catch let error as SpeechEngineError where engine.kind == .whisper && !Self.isPermission(error) {
+            // Whisper couldn't start: Apple dictation instead, this time.
+            engine = AppleRecognizerEngine()
+            self.engine = engine
+            activeEngine = .apple
+            do { try await start(engine, id: id) } catch { fail(error, id: id) }
         } catch {
-            teardown()
-            errorMessage = "Couldn't start the microphone."
+            fail(error, id: id)
         }
     }
 
-    /// Stops listening and hands the final text to the field.
+    private func start(_ engine: SpeechRecognizerEngine, id: UUID) async throws {
+        try await engine.start(locale: .current) { [weak self] event in
+            self?.handle(event, id: id)
+        }
+    }
+
+    private func fail(_ error: Error, id: UUID) {
+        guard activeID == id else { return }
+        reset()
+        errorMessage = (error as? LocalizedError)?.errorDescription ?? "Couldn't start the microphone."
+    }
+
+    private static func isPermission(_ error: SpeechEngineError) -> Bool {
+        if case .notAuthorized = error { return true }
+        return false
+    }
+
+    private func handle(_ event: RecognitionEvent, id: UUID) {
+        guard activeID == id else { return }
+        switch event {
+        case .partial(let text):
+            latest = text
+            onText?(text)
+        case .final(let text):
+            let final = text.isEmpty ? latest : text
+            if final != latest, !final.isEmpty { onText?(final) }
+            complete(with: final)
+        case .failed(let message):
+            if latest.isEmpty { errorMessage = message }
+            complete(with: latest)
+        }
+    }
+
+    /// Stops listening; the field gets the final text (straight away with Apple's
+    /// recogniser, after one last pass with Whisper).
     func finish() {
-        guard activeID != nil else { return }
-        let text = latest
+        guard activeID != nil, let engine else { return }
+        engine.finish()
+        guard activeID != nil else { return }   // the final arrived synchronously
+        finishTimeout?.cancel()
+        let id = activeID
+        let timeout = finishTimeoutDuration
+        finishTimeout = Task { [weak self] in
+            try? await Task.sleep(for: timeout)
+            guard let self, !Task.isCancelled, self.activeID == id else { return }
+            self.engine?.cancel()
+            self.complete(with: self.latest)
+        }
+    }
+
+    private func complete(with text: String) {
         let callback = onFinish
-        teardown()
+        reset()
         if !text.isEmpty { callback?(text) }
     }
 
-    private func armSilenceTimer() {
-        silenceTask?.cancel()
-        let timeout = silenceTimeout
-        silenceTask = Task { [weak self] in
-            try? await Task.sleep(for: timeout)
-            guard !Task.isCancelled else { return }
-            self?.finish()
-        }
-    }
-
-    private func teardown() {
-        silenceTask?.cancel()
-        silenceTask = nil
-        if engine.isRunning { engine.stop() }
-        engine.inputNode.removeTap(onBus: 0)
-        request?.endAudio()
-        task?.cancel()
-        request = nil
-        task = nil
+    private func reset() {
+        finishTimeout?.cancel()
+        finishTimeout = nil
+        engine = nil
+        onText = nil
         onFinish = nil
         activeID = nil
-        // Let ducked music come back up.
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-    }
-
-    private static func authorize() async -> Bool {
-        let speech: Bool = await withCheckedContinuation { continuation in
-            SFSpeechRecognizer.requestAuthorization { status in
-                continuation.resume(returning: status == .authorized)
-            }
-        }
-        guard speech else { return false }
-        return await AVAudioApplication.requestRecordPermission()
+        activeEngine = nil
     }
 }
 

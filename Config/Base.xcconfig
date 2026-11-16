@@ -10,8 +10,25 @@ DUODASH_BUNDLE_ID = com.example.duodash
 DUODASH_DISPLAY_NAME = CarPlay
 DUODASH_APP_ICON = AppIconCarPlay
 
+// Edition: `personal` (this repo's own builds: official app icons in the dock, CarPlay
+// branding allowed) or `commercial` (a future App Store build: own icons and wording only).
+// Build the commercial one with `-xcconfig Config/Commercial.xcconfig` (see docs/COMMERCIAL.md).
+// The app reads it from the Info.plist key DuoDashEdition (`Edition.current`).
+DUODASH_EDITION = personal
+// Apple's and Spotify's icons (dock tiles, the CarPlay app icon) live in their own asset
+// catalog so the commercial build can leave them out of the bundle entirely.
+DUODASH_EXCLUDED_personal =
+DUODASH_EXCLUDED_commercial = BrandedIcons.xcassets
+EXCLUDED_SOURCE_FILE_NAMES = $(DUODASH_EXCLUDED_$(DUODASH_EDITION))
+
 // Spotify client ID etc. live in the git-ignored Config/Secrets.xcconfig.
 SPOTIFY_CLIENT_ID =
+// HomeKit is opt-in: its entitlement needs an app-specific provisioning profile, so
+// DUODASH_HOMEKIT = YES in Config/Local.xcconfig (scripts/setup.sh --homekit) turns it on.
+// Only the app target gets the entitlements file; test bundles get none.
+DUODASH_HOMEKIT = NO
+DUODASH_ENTITLEMENTS_DuoDash_YES = Config/DuoDash.entitlements
+CODE_SIGN_ENTITLEMENTS = $(DUODASH_ENTITLEMENTS_$(TARGET_NAME)_$(DUODASH_HOMEKIT))
 #include? "Secrets.xcconfig"
 
 #include? "Local.xcconfig"

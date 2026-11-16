@@ -38,8 +38,10 @@ final class PhoneMessagesUITests: XCTestCase {
 
     private func open(_ id: String) {
         let button = app.buttons["dock.\(id)"]
+        // Home is a toggle (Dashboard / app grid): already there means nothing to do.
+        if id == "home", button.exists, button.isSelected, app.descendants(matching: .any)["screen.home"].exists { return }
         XCTAssertTrue(button.waitForExistence(timeout: 5))
-        button.tap()
+        app.tapDockButton(button)
         XCTAssertTrue(app.descendants(matching: .any)["screen.\(id)"].waitForExistence(timeout: 5))
     }
 

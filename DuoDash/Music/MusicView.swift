@@ -250,8 +250,12 @@ struct MusicView: View {
         } else {
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: Theme.gap)], spacing: Theme.gap) {
+                    // Rows in the visible tab are music.row.N; rows in tabs kept alive behind it get
+                    // tab-scoped ids, so ids never repeat (UI tests, automation).
+                    let owner = listTab ?? .search
+                    let idPrefix = owner == tab ? "music" : "music.\(owner)"
                     ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
-                        MusicEntryRow(entry: entry, index: index,
+                        MusicEntryRow(entry: entry, index: index, idPrefix: idPrefix,
                                       isPending: music.pendingEntryID == entry.id,
                                       isCurrent: false) {
                             if let listTab, entry.kind == .album || entry.kind == .playlist {
@@ -276,6 +280,7 @@ private struct MusicEntryRow: View {
     @Environment(AppleMusicModel.self) private var music
     let entry: MusicEntry
     let index: Int
+    var idPrefix = "music"
     let isPending: Bool
     let isCurrent: Bool
     let onPlay: () -> Void
@@ -318,7 +323,7 @@ private struct MusicEntryRow: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(PressableStyle())
-            .accessibilityIdentifier("music.row.\(index)")
+            .accessibilityIdentifier("\(idPrefix).row.\(index)")
 
             if entry.kind == .album || entry.kind == .playlist {
                 Button(action: onShuffle) {
@@ -329,7 +334,7 @@ private struct MusicEntryRow: View {
                 }
                 .buttonStyle(PressableStyle())
                 .accessibilityLabel("Shuffle \(entry.title)")
-                .accessibilityIdentifier("music.shuffle.\(index)")
+                .accessibilityIdentifier("\(idPrefix).shuffle.\(index)")
             }
         }
         .padding(.trailing, 4)

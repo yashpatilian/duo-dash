@@ -59,6 +59,26 @@ struct DashMetrics: Equatable {
     /// Decided from the window alone, so hiding the now-playing bar can't flip it.
     var homeIsSplit: Bool { usesSidebar && size.width - sidebarWidth - insets.leading - 2 * Theme.gap >= 560 }
 
+    /// Whole-UI zoom: 1 on phones and the Duo, growing on bigger windows (iPad) so the
+    /// layout is designed once at about 720 pt on the short side and scaled up from there.
+    var scale: CGFloat = 1
+    static let designShortSide: CGFloat = 720
+    static func displayScale(for size: CGSize) -> CGFloat {
+        let short = min(size.width, size.height)
+        return min(1.45, max(1, (short / designShortSide * 100).rounded() / 100))
+    }
+    /// The metrics the layout sees after zooming: a smaller logical window, same shape.
+    func scaledForDisplay() -> DashMetrics {
+        let s = Self.displayScale(for: size)
+        guard s > 1 else { return self }
+        var m = self
+        m.scale = s
+        m.size = CGSize(width: size.width / s, height: size.height / s)
+        m.insets = EdgeInsets(top: insets.top / s, leading: insets.leading / s,
+                              bottom: insets.bottom / s, trailing: insets.trailing / s)
+        return m
+    }
+
     /// Height of the status row used with the bottom dock. Tall enough that the
     /// cover screen's camera (top right) sits inside it.
     var statusHeight: CGFloat { 54 }

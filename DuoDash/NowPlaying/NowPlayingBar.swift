@@ -37,18 +37,11 @@ struct NowPlayingBar: View {
             .accessibilityIdentifier("nowplaying.open")
 
             if hasSource {
-                if !metrics.isCompact {
-                    DashIconButton(symbol: "backward.fill", label: "Previous", identifier: "nowplaying.previous") {
-                        nowPlaying.skipToPrevious()
-                    }
-                }
-                DashIconButton(symbol: nowPlaying.isPlaying ? "pause.fill" : "play.fill", prominent: true,
-                               label: nowPlaying.isPlaying ? "Pause" : "Play", identifier: "nowplaying.playpause") {
-                    nowPlaying.togglePlayPause()
-                }
-                DashIconButton(symbol: "forward.fill", label: "Next", identifier: "nowplaying.next") {
-                    nowPlaying.skipToNext()
-                }
+                GlassTransport(isPlaying: nowPlaying.isPlaying, showsPrevious: !metrics.isCompact,
+                               idPrefix: "nowplaying",
+                               previous: { nowPlaying.skipToPrevious() },
+                               playPause: { nowPlaying.togglePlayPause() },
+                               next: { nowPlaying.skipToNext() })
             }
         }
         .padding(.horizontal, 10)

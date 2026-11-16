@@ -1,0 +1,103 @@
+name: Bug report
+description: Something in Duo Dash doesn't work the way it should.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please don't post personal details here: no Team IDs,
+        bundle IDs with your name in them, device IDs, API keys, Spotify client IDs, home
+        or work addresses, contacts or phone numbers. Crop or blur screenshots that show them.
+
+        Security problems go through [SECURITY.md](https://github.com/yashpatilian/duo-dash/blob/HEAD/SECURITY.md), not a public issue.
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device
+      options:
+        - iPhone Duo
+        - Other iPhone
+        - iPad
+        - Simulator
+    validations:
+      required: true
+  - type: input
+    id: device-model
+    attributes:
+      label: Device model
+      description: For example "iPhone Duo", "iPhone 17 Pro" or "iPad Air (M3)".
+    validations:
+      required: false
+  - type: input
+    id: ios-version
+    attributes:
+      label: iOS / iPadOS version
+      description: Settings → General → About → iOS Version.
+      placeholder: "26.2"
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: Duo Dash version and commit
+      description: |
+        Version from Duo Dash → Settings → Version, and the commit you built from
+        (run `git rev-parse --short HEAD` in your duo-dash folder).
+      placeholder: "0.2 (1), commit abc1234"
+    validations:
+      required: true
+  - type: dropdown
+    id: posture
+    attributes:
+      label: Screen / posture when it happened
+      description: Pick every one where you saw it.
+      multiple: true
+      options:
+        - Folded (cover screen)
+        - Unfolded (inner screen)
+        - Half-open
+        - Split View / Stage Manager
+        - Not applicable (non-foldable device)
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps from opening the app, as exact as you can.
+      placeholder: |
+        1. Open Duo Dash folded
+        2. Tap Music
+        3. Unfold the phone
+        4. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+      description: Include any error message word for word.
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or screen recording
+      description: Drag files in here. Remove anything personal first.
+    validations:
+      required: false
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Car / mount / CarPlay setup, which music service, whether it happens every time, etc.
+    validations:
+      required: false

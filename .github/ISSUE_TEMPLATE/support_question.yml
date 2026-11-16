@@ -1,0 +1,55 @@
+name: Support question
+description: Help installing, setting up or using Duo Dash.
+title: "[Help]: "
+labels: ["support"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Most install problems are answered in [docs/INSTALL.md](https://github.com/yashpatilian/duo-dash/blob/HEAD/docs/INSTALL.md)
+        (see Troubleshooting at the end), [docs/SPOTIFY_SETUP.md](https://github.com/yashpatilian/duo-dash/blob/HEAD/docs/SPOTIFY_SETUP.md)
+        and [docs/CAR_SETUP.md](https://github.com/yashpatilian/duo-dash/blob/HEAD/docs/CAR_SETUP.md). An automated assistant may
+        reply first with pointers from those guides; a person follows up when needed.
+
+        Never paste your Team ID, API keys, Spotify client ID or secret, device IDs or
+        addresses. Replace them with `XXXX`.
+  - type: dropdown
+    id: area
+    attributes:
+      label: What is it about?
+      options:
+        - Installing / signing / Xcode
+        - Spotify
+        - Apple Music
+        - Maps and navigation
+        - Phone, Messages or Contacts
+        - Assistant (Apple Intelligence or Claude)
+        - Dashcam
+        - Home / HomeKit
+        - Car setup / auto-open
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: What are you trying to do, what did you try, and what happened?
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Mac, Xcode and phone
+      description: macOS version, Xcode version (`xcodebuild -version`), phone model and iOS version.
+      placeholder: "macOS 27.1, Xcode 27.1, iPhone Duo on iOS 26.2"
+    validations:
+      required: false
+  - type: textarea
+    id: output
+    attributes:
+      label: Error output
+      description: Paste the end of the `scripts/setup.sh` output or the Xcode error. Remove personal details first.
+      render: text
+    validations:
+      required: false

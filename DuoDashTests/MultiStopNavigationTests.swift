@@ -66,7 +66,7 @@ final class MultiStopNavigationTests: XCTestCase {
 
     /// Routes straight from the source (or `start` for "current location") to the destination.
     private func makeModel() -> (NavigationModel, LocationManager) {
-        let location = LocationManager()
+        let location = LocationManager(live: false)   // fixes only from drive(), never the simulator's GPS
         let model = NavigationModel(location: location, defaults: defaults) { [unowned self] source, destination in
             let from = source.isCurrentLocation ? self.start : source.location.coordinate
             self.requested.append((source.isCurrentLocation ? nil : source.location.coordinate, destination.name ?? ""))

@@ -22,9 +22,17 @@ whatever window it's given, so a spare iPhone or an iPad mini on a dash mount wo
   <img src="docs/media/phone.jpg" width="49%" alt="Phone favourites">
 </p>
 <p>
+  <img src="docs/media/weather.jpg" width="49%" alt="Weather, iOS Weather style">
+  <img src="docs/media/calendar.jpg" width="49%" alt="Calendar month view">
+</p>
+<p>
+  <img src="docs/media/car.jpg" width="49%" alt="Live car data over OBD-II">
+  <img src="docs/media/dashcam.jpg" width="49%" alt="Dashcam">
+</p>
+<p>
   <img src="docs/media/assistant.jpg" width="49%" alt="Voice assistant">
   <img src="docs/media/folded.jpg" width="23%" alt="Folded, cover screen">
-  <img src="docs/media/settings.jpg" width="25%" alt="Settings">
+  <img src="docs/media/home-grid.jpg" width="25%" alt="App grid">
 </p>
 
 ## Features
@@ -81,7 +89,39 @@ whatever window it's given, so a spare iPhone or an iPad mini on a dash mount wo
 - Write texts by voice, or use quick replies, including **"On my way, ETA 5:42"** while
   you're navigating.
 
+**Calendar**
+- Day, Month and Upcoming views like the iOS Calendar app, in your calendars' colours, with
+  a one-tap **Go** to drive to any event's place. Your next event sits on the Dashboard.
+
+**Weather**
+- A Weather app in the style of iOS Weather: the sky behind it matches the conditions (sun,
+  cloud, rain, storms, snow, stars at night), with hourly and 10-day forecasts and tiles for
+  feels-like, UV, wind, sunrise and more.
+- Weather on the map, and **at your destination when you arrive** in every route preview.
+
+**Car data** (with a ~A$12–60 Bluetooth OBD-II adapter)
+- Live speed, RPM, coolant and intake temperatures, throttle, load and fuel level (whatever
+  your car supports), plus battery voltage on any car.
+- Check-engine codes with plain-English descriptions, and clearing them when parked.
+
+**Dashcam**
+- Unfolded on the dash, the Duo's rear cameras face the road: loop recording (2 to 30 min),
+  **Save clip** to keep the moment, GPS and speed with every clip, Save to Photos.
+
+**Home** (HomeKit, optional)
+- Garage door, locks, lights and scenes as big tiles, and **"Open garage?"** as you arrive
+  home. Locks are never opened automatically.
+
+See [docs/CAR_SETUP.md](docs/CAR_SETUP.md) for what to buy and how to set it up.
+
+**Voice**
+- On-device **Whisper** for dictation and the assistant, and natural on-device voices
+  (**Kokoro**) for replies and directions, downloaded once. Apple's engines are the fallback.
+
 **And**
+- CarPlay's **app grid**: tap the bottom dock button on the Dashboard to switch between the
+  Dashboard and all your apps.
+- Runs on any iPhone or iPad too; on big screens the whole interface scales up.
 - A mic button on every text field, for voice input.
 - **Settings** for the AI provider and key, voice, the map, places, the dock order, recents
   and auto-open.
@@ -162,7 +202,11 @@ DuoDash/
 
 ## Roadmap
 More is on the way: day and night themes, a dock-side option, more assistant actions, and
-widgets for the dashboard. Ideas and bug reports are welcome in Issues.
+more dashboard widgets. Ideas and bug reports are welcome in Issues (an AI triage bot
+answers and labels them; see [docs/AGENT_PIPELINE.md](docs/AGENT_PIPELINE.md)).
+
+**Duo Dock**, a car mount made for iPhone Duo that stops the unfolded phone sagging, is
+coming soon: [doc.yashyp.com](https://doc.yashyp.com).
 
 ## Licence and disclaimer
 - **Licence:** Duo Dash is **source-available for personal use only**. You may read the

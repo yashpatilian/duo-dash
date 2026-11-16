@@ -1,0 +1,163 @@
+name: Issue triage (agent)
+
+# Labels new issues, answers support questions from the docs, asks for missing details
+# and spots duplicates. See docs/AGENT_PIPELINE.md.
+#
+# Security model:
+# - The Claude job gets a READ-ONLY token (contents: read, issues: read) and read-only
+#   tools. Issue text from anyone reaches it, so it can't change anything.
+# - It returns JSON. A separate job with no API key and no Claude applies only
+#   allow-listed labels and posts the sanitised comment.
+# - Off switch: repository variable AGENT_PIPELINE=off, or no ANTHROPIC_API_KEY secret.
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+
+permissions: {}
+
+jobs:
+  gate:
+    # Skip bots, and on edits only re-triage when the author edits an issue that was
+    # waiting for more information.
+    if: >-
+      vars.AGENT_PIPELINE != 'off' &&
+      github.event.issue.user.type != 'Bot' &&
+      github.event.sender.type != 'Bot' &&
+      (github.event.action != 'edited' ||
+        (github.event.sender.login == github.event.issue.user.login &&
+         contains(github.event.issue.labels.*.name, 'needs-info')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    outputs:
+      run: ${{ steps.key.outputs.run }}
+    steps:
+      - name: Check the API key is configured
+        id: key
+        env:
+          HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+        run: |
+          if [ "$HAS_KEY" = "true" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice title=Agent pipeline off::ANTHROPIC_API_KEY secret is not set, so issue triage is skipped. See docs/AGENT_PIPELINE.md."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  triage:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: issue-triage-${{ github.event.issue.number }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      result: ${{ steps.claude.outputs.structured_output }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Build the prompt
+        id: prompt
+        env:
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          {
+            echo 'text<<DUO_DASH_PROMPT_END'
+            cat .github/agent/house-rules.md
+            echo
+            cat .github/agent/triage.md
+            printf '\n## This run\n- Repository: %s\n- Issue number: %s\n' "$REPO" "$ISSUE"
+            echo 'DUO_DASH_PROMPT_END'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Triage with Claude
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Issues come from people without write access; this is only safe because
+          # the token passed here is read-only and the tools below can't write.
+          github_token: ${{ github.token }}
+          allowed_non_write_users: "*"
+          prompt: ${{ steps.prompt.outputs.text }}
+          claude_args: |
+            --model claude-opus-5-5
+            --max-turns 20
+            --permission-mode default
+            --allowedTools "Read,Glob,Grep,Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh search issues:*)"
+            --disallowedTools "Edit,MultiEdit,Write,NotebookEdit,WebFetch,WebSearch,Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh issue close:*),Bash(gh api:*),Bash(curl:*),Bash(wget:*)"
+            --json-schema '{"type":"object","additionalProperties":false,"required":["category","needs_info","missing","duplicate_of","comment","suspicious","notes"],"properties":{"category":{"type":"string","enum":["bug","feature","support","other"]},"needs_info":{"type":"boolean"},"missing":{"type":"array","items":{"type":"string"}},"duplicate_of":{"type":["integer","null"]},"comment":{"type":"string"},"suspicious":{"type":"boolean"},"notes":{"type":"string"}}}'
+
+  apply:
+    needs: triage
+    if: needs.triage.outputs.result != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Apply labels and comment
+        env:
+          RESULT: ${{ needs.triage.outputs.result }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+          HAD_NEEDS_INFO: ${{ contains(github.event.issue.labels.*.name, 'needs-info') }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          jq -e . >/dev/null <<<"$RESULT" || { echo "::error::Agent output is not JSON"; exit 1; }
+          category=$(jq -r '.category' <<<"$RESULT")
+          needs_info=$(jq -r '.needs_info' <<<"$RESULT")
+          dup=$(jq -r '.duplicate_of // empty' <<<"$RESULT")
+          suspicious=$(jq -r '.suspicious' <<<"$RESULT")
+
+          label() { gh issue edit "$ISSUE" -R "$REPO" "$@" >/dev/null 2>&1 || echo "::warning::gh issue edit $* failed (does the label exist? run scripts/setup-github-labels.sh)"; }
+
+          if [ "$suspicious" = "true" ]; then
+            label --add-label needs-human
+            echo "::warning title=Possible prompt injection::Issue #$ISSUE was flagged by the triage agent; no comment posted."
+            jq -r '"Agent notes: " + .notes' <<<"$RESULT" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          case "$category" in bug|feature|support) label --add-label "$category" ;; esac
+          if [ "$needs_info" = "true" ]; then label --add-label needs-info; elif [ "$HAD_NEEDS_INFO" = "true" ]; then label --remove-label needs-info; fi
+          if [[ "$dup" =~ ^[0-9]+$ ]] && [ "$dup" != "$ISSUE" ] \
+             && gh issue view "$dup" -R "$REPO" --json number >/dev/null 2>&1; then
+            label --add-label duplicate
+          fi
+
+          # Comment: neutralise @mentions and slash commands, cap the length, add a footer.
+          jq -r '.comment' <<<"$RESULT" > "$RUNNER_TEMP/raw.md"
+          [ -s "$RUNNER_TEMP/raw.md" ] && [ "$(tr -d '[:space:]' < "$RUNNER_TEMP/raw.md")" != "" ] || { echo "No comment to post"; exit 0; }
+          python3 -I - "$RUNNER_TEMP/raw.md" "$RUNNER_TEMP/body.md" "$RUN_URL" <<'PY'
+          import re, sys
+          src, dst, run = sys.argv[1:4]
+          text = open(src, encoding="utf-8").read()[:6000]
+          text = re.sub(r"(?<![\w`])@(?=[A-Za-z0-9-])", "@​", text)          # no pings
+          text = re.sub(r"(?m)^\s*/agent", "`/agent`", text)                       # no commands
+          text = re.sub(r"<!--.*?-->", "", text, flags=re.S)                        # no hidden text
+          marker = "<!-- duo-dash-triage -->"
+          footer = ("\n\n---\n<sub>Automated reply from the Duo Dash triage assistant "
+                    f"([run]({run})). The maintainer reads every issue and will follow up if needed.</sub>")
+          open(dst, "w", encoding="utf-8").write(marker + "\n" + text.strip() + footer + "\n")
+          PY
+
+          # Update our earlier triage comment if there is one, so edits don't pile up replies.
+          existing=$(gh api "repos/$REPO/issues/$ISSUE/comments" --paginate \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | contains("<!-- duo-dash-triage -->"))) | .id' | tail -n 1)
+          if [ -n "$existing" ]; then
+            jq -Rs '{body: .}' "$RUNNER_TEMP/body.md" | gh api -X PATCH "repos/$REPO/issues/comments/$existing" --input - >/dev/null
+          else
+            gh issue comment "$ISSUE" -R "$REPO" --body-file "$RUNNER_TEMP/body.md" >/dev/null
+          fi

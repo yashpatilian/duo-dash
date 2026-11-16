@@ -136,13 +136,15 @@ struct DashMapView: View {
 /// heading-up / north-up switch (hidden while guiding, which always follows heading).
 struct MapControls: View {
     @Binding var position: MapCameraPosition
+    /// Prefix for the buttons' ids, so the Home map's and the Maps map's controls differ.
+    var idPrefix = "map"
     @Environment(NavigationModel.self) private var navigation
 
     var body: some View {
         HStack(spacing: Theme.gap) {
             RecenterButton(position: $position)
             if !navigation.isGuiding {
-                MapOrientationButton()
+                MapOrientationButton(identifier: "\(idPrefix).orientation")
                     .transition(.scale.combined(with: .opacity))
             }
         }
@@ -153,10 +155,11 @@ struct MapControls: View {
 /// Glass button that flips between Heading up and North up. Its symbol shows the current mode.
 struct MapOrientationButton: View {
     @AppStorage(MapOrientation.storageKey) private var orientation: MapOrientation = .headingUp
+    var identifier = "map.orientation"
 
     var body: some View {
         DashIconButton(symbol: orientation.symbol, label: "Map orientation: \(orientation.title)",
-                       identifier: "map.orientation") {
+                       identifier: identifier) {
             orientation = orientation.toggled
         }
         .accessibilityValue(orientation.title)

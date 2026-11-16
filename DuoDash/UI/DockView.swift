@@ -49,7 +49,7 @@ struct DockView: View {
                         }
                         .mask(edgeFade(vertical: true))
                         .accessibilityIdentifier("dock.scroll")
-                        DockButton(item: .home, tile: tile, isSelected: app.selected == .home) { app.open(.home) }
+                        DockButton(item: .home, tile: tile, isSelected: app.selected == .home) { app.homeButtonTapped() }
                             .frame(height: tile + 12)
                     }
                 } else {
@@ -71,7 +71,7 @@ struct DockView: View {
                         }
                         .mask(edgeFade(vertical: false))
                         .accessibilityIdentifier("dock.scroll")
-                        DockButton(item: .home, tile: tile, isSelected: app.selected == .home) { app.open(.home) }
+                        DockButton(item: .home, tile: tile, isSelected: app.selected == .home) { app.homeButtonTapped() }
                             .frame(width: tile + 12)
                     }
                 }

@@ -72,6 +72,9 @@ they still need to do on the phone.
   UI tests take about 25 minutes. `DUODASH_CANVAS=WxH` makes the app render at a given window
   size (cover screen, Split View, inner screen). The Simulator uses demo backends for Apple
   Music and Spotify; `-DemoSpotify` and `-SeedContacts` launch arguments exist for tests.
+  The first-launch welcome tour is hidden under `-UITest`/`-Capture`; pass `-Onboarding` to show
+  it, or `-OnboardingStep <id>` (e.g. `spotify.3`, `promo`) to open one page.
+  `-xcconfig Config/Commercial.xcconfig` builds the App Store edition (see docs/COMMERCIAL.md).
 - **Conventions.**
   - Swift 5 language mode, `@MainActor @Observable` models in the environment, zero compiler
     warnings in app sources.
@@ -84,3 +87,10 @@ they still need to do on the phone.
   client IDs, addresses), or `Config/Local.xcconfig` /
   `Config/Secrets.xcconfig`.
 - Decisions and status are in [docs/PROJECT_NOTES.md](docs/PROJECT_NOTES.md).
+- GitHub issue triage, draft PRs and reviews by Claude run in GitHub Actions; see
+  [docs/AGENT_PIPELINE.md](docs/AGENT_PIPELINE.md). Agents never change `.github/`.
+- **Never make users re-download speech models.** Whisper and Kokoro models live in
+  `Application Support/Speech/` (see `SpeechModelStore`). Updates install over the existing
+  app and keep that folder, so don't move it, rename model/variant IDs, or change the
+  bundle ID without migrating the files already there. Device installs must never pass
+  `-ResetState` or uninstall first.

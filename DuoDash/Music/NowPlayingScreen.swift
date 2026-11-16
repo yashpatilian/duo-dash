@@ -273,7 +273,7 @@ private struct TransportCapsule: View {
 
 /// A plain white glyph with a full-size touch target. "On" toggles get a soft
 /// white disc behind them, as in Apple Music.
-private struct GlyphButton: View {
+struct GlyphButton: View {
     let symbol: String
     let size: CGFloat
     var isOn: Bool? = nil
@@ -298,5 +298,33 @@ private struct GlyphButton: View {
         .accessibilityLabel(label)
         .accessibilityIdentifier(identifier)
         .accessibilityAddTraits(isOn == true ? .isSelected : [])
+    }
+}
+
+/// Previous / play-pause / next as white glyphs in one Liquid Glass capsule, the same
+/// controls as the full player. Used by the mini bar and the Home media card.
+struct GlassTransport: View {
+    let isPlaying: Bool
+    var showsPrevious = true
+    var scale: CGFloat = 1
+    var idPrefix: String
+    let previous: () -> Void
+    let playPause: () -> Void
+    let next: () -> Void
+
+    var body: some View {
+        HStack(spacing: 0) {
+            if showsPrevious {
+                GlyphButton(symbol: "backward.fill", size: 22 * scale, label: "Previous",
+                            identifier: "\(idPrefix).previous", action: previous)
+            }
+            GlyphButton(symbol: isPlaying ? "pause.fill" : "play.fill", size: 28 * scale,
+                        label: isPlaying ? "Pause" : "Play", identifier: "\(idPrefix).playpause", action: playPause)
+                .contentTransition(.symbolEffect(.replace))
+            GlyphButton(symbol: "forward.fill", size: 22 * scale, label: "Next",
+                        identifier: "\(idPrefix).next", action: next)
+        }
+        .padding(.horizontal, 4)
+        .glassEffect(.regular.interactive(), in: Capsule())
     }
 }

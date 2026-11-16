@@ -109,14 +109,22 @@ final class NavigationModel {
     var tripDistance: CLLocationDistance { legs.reduce(0) { $0 + $1.distance } }
     var tripTime: TimeInterval { legs.reduce(0) { $0 + $1.expectedTravelTime } }
 
+    /// MapKit's final step of a leg ("Arrive at the destination", "The destination is on your right").
+    static func isArrival(_ instruction: String) -> Bool {
+        let t = instruction.lowercased()
+        return t.contains("arrive") || t.contains("destination")
+    }
+
     var maneuverInstruction: String {
         guard let route else { return "" }
         if state == .arrived || maneuverIndex >= route.steps.count {
             return "Arrive at \(currentTarget?.name ?? "destination")"
         }
         // MapKit ends every leg with "Arrive at the destination"; name the stop or destination instead.
-        if maneuverIndex == route.steps.count - 1, let name = currentTarget?.name { return "Arrive at \(name)" }
         let text = route.steps[maneuverIndex].instructions
+        if maneuverIndex == route.steps.count - 1, let name = currentTarget?.name, Self.isArrival(text) {
+            return "Arrive at \(name)"
+        }
         return text.isEmpty ? "Continue" : text
     }
 
@@ -134,6 +142,7 @@ final class NavigationModel {
         guard gap < 300 else { return nil }
         if next == route.steps.count { return "Then arrive" + (currentTarget?.name.map { " at \($0)" } ?? "") }
         let text = route.steps[next].instructions
+        if next == route.steps.count - 1, Self.isArrival(text), let name = currentTarget?.name { return "Then arrive at \(name)" }
         return text.isEmpty ? nil : "Then \(text.prefix(1).lowercased())\(text.dropFirst())"
     }
 

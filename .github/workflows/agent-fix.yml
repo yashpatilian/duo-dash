@@ -1,0 +1,299 @@
+name: Agent build (draft PR from an issue)
+
+# A maintainer asks the agent to implement an issue by adding the label `agent:build`
+# or commenting `/agent build` on it. The agent drafts the change; the workflow opens a
+# DRAFT pull request for the owner to build, test and merge (or close). Nothing merges
+# automatically. See docs/AGENT_PIPELINE.md.
+#
+# Security model:
+# - Only people with write access (or the repo owner) can trigger it; checked twice
+#   (GitHub's author association / API permission here, and the action's own check).
+# - Issue events always run this file from the default branch, never from a fork or PR.
+# - The Claude job holds a READ-ONLY GitHub token and can only edit files in its own
+#   checkout. It cannot commit, push, comment or open PRs.
+# - A separate job with no API key checks the patch (.github/agent/check-patch.sh:
+#   no .github/, Config/*.xcconfig, secrets, size limits), commits it to a new
+#   agent/issue-N-<run> branch and opens a draft PR. GITHUB_TOKEN can't push workflow
+#   changes and can't trigger other workflows, so the agent can't widen its own access.
+
+on:
+  issues:
+    types: [labeled]
+  issue_comment:
+    types: [created]
+
+permissions: {}
+
+jobs:
+  gate:
+    if: >-
+      vars.AGENT_PIPELINE != 'off' &&
+      github.event.issue.state == 'open' &&
+      github.event.sender.type != 'Bot' &&
+      ((github.event_name == 'issues' && github.event.label.name == 'agent:build') ||
+       (github.event_name == 'issue_comment' &&
+        !github.event.issue.pull_request &&
+        startsWith(github.event.comment.body, '/agent build') &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)))
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      issues: write
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - name: Check key and requester
+        id: check
+        env:
+          HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.event.sender.login }}
+          OWNER: ${{ github.event.repository.owner.login }}
+        run: |
+          set -uo pipefail
+          if [ "$HAS_KEY" != "true" ]; then
+            echo "::notice title=Agent pipeline off::ANTHROPIC_API_KEY secret is not set, so the build agent is skipped. See docs/AGENT_PIPELINE.md."
+            echo "run=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          perm=$(gh api "repos/$REPO/collaborators/$ACTOR/permission" --jq .permission 2>/dev/null || echo "unknown")
+          if [ "$ACTOR" = "$OWNER" ] || [ "$perm" = "admin" ] || [ "$perm" = "maintain" ] || [ "$perm" = "write" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice title=Not allowed::$ACTOR has '$perm' access; the build agent needs write access."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Acknowledge
+        if: steps.check.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue comment "$ISSUE" -R "$REPO" --body "The build agent is drafting a change for this issue ([progress]($RUN_URL)). It will open a **draft** pull request for the maintainer to review and test; nothing merges automatically." >/dev/null
+
+  build:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    concurrency:
+      group: agent-build-${{ github.event.issue.number }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Build the prompt
+        id: prompt
+        env:
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          {
+            echo 'text<<DUO_DASH_PROMPT_END'
+            cat .github/agent/house-rules.md
+            echo
+            cat .github/agent/build.md
+            printf '\n## This run\n- Repository: %s\n- Issue number: %s\n' "$REPO" "$ISSUE"
+            echo 'DUO_DASH_PROMPT_END'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Implement with Claude
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          prompt: ${{ steps.prompt.outputs.text }}
+          # acceptEdits: file edits inside the checkout are allowed; any other tool must
+          # be on the allow list below (no auto-mode review, no network, no git writes).
+          claude_args: |
+            --model claude-opus-5-5
+            --max-turns 80
+            --permission-mode acceptEdits
+            --allowedTools "Read,Glob,Grep,Edit,MultiEdit,Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh search issues:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(swiftc -parse:*)"
+            --disallowedTools "WebFetch,WebSearch,NotebookEdit,Bash(git add:*),Bash(git rm:*),Bash(git commit:*),Bash(git push:*),Bash(git checkout:*),Bash(git switch:*),Bash(git config:*),Bash(gh api:*),Bash(gh pr:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(curl:*),Bash(wget:*),Bash(env:*),Bash(printenv:*),Edit(.github/**),Write(.github/**),Edit(Config/*.xcconfig),Write(Config/*.xcconfig),Edit(.claude/**),Write(.claude/**)"
+            --json-schema '{"type":"object","additionalProperties":false,"required":["status","title","summary","changes","tests_to_run","risks","new_dependencies","reason","suspicious","notes"],"properties":{"status":{"type":"string","enum":["implemented","partial","not_attempted"]},"title":{"type":"string"},"summary":{"type":"string"},"changes":{"type":"array","items":{"type":"string"}},"tests_to_run":{"type":"array","items":{"type":"string"}},"risks":{"type":"array","items":{"type":"string"}},"new_dependencies":{"type":"array","items":{"type":"string"}},"reason":{"type":"string"},"suspicious":{"type":"boolean"},"notes":{"type":"string"}}}'
+
+      - name: Package the change
+        env:
+          RESULT: ${{ steps.claude.outputs.structured_output }}
+          BASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/agent"; mkdir -p "$out"
+          [ -n "${RESULT:-}" ] || RESULT='{}'
+          printf '%s' "$RESULT" > "$out/result.json"
+          # Everything that differs from the commit we started from, as one patch.
+          # .claude/ and .claude-pr/ are the action's own scratch space, not changes.
+          git add -A -- . ':(exclude).claude' ':(exclude).claude-pr'
+          git diff --cached --no-renames --binary "$BASE_SHA" > "$out/agent.patch"
+          echo "Patch: $(wc -l < "$out/agent.patch") lines"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: agent-build-${{ github.run_id }}
+          path: ${{ runner.temp }}/agent/
+          retention-days: 14
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    outputs:
+      pr_number: ${{ steps.pr.outputs.pr_number }}
+    steps:
+      # Same commit the agent started from, so the patch applies cleanly.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: agent-build-${{ github.run_id }}
+          path: ${{ runner.temp }}/agent
+
+      - name: Check, commit and open a draft PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+          BASE: ${{ github.event.repository.default_branch }}
+          BRANCH: agent/issue-${{ github.event.issue.number }}-${{ github.run_id }}
+          REQUESTER: ${{ github.event.sender.login }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          A="$RUNNER_TEMP/agent"
+          say() { gh issue comment "$ISSUE" -R "$REPO" --body "$1" >/dev/null || true; }
+          status=$(jq -r '.status // "unknown"' "$A/result.json")
+          suspicious=$(jq -r '.suspicious // false' "$A/result.json")
+
+          if [ "$suspicious" = "true" ]; then
+            gh issue edit "$ISSUE" -R "$REPO" --add-label needs-human >/dev/null 2>&1 || true
+            say "The build agent flagged this issue's text as possibly trying to steer it, so it did not open a pull request. The maintainer will take a look ([run]($RUN_URL))."
+            exit 0
+          fi
+
+          if [ ! -s "$A/agent.patch" ]; then
+            reason=$(jq -r '.reason // ""' "$A/result.json" | head -c 1500 | sed 's/@/@\xE2\x80\x8B/g')
+            say "The build agent finished without changing any files (status: \`$status\`). ${reason:+Reason: $reason} ([run]($RUN_URL))"
+            exit 0
+          fi
+
+          # Checked with the default branch's rules, before anything is applied.
+          if ! .github/agent/check-patch.sh "$A/agent.patch" "$A/flags.md"; then
+            gh issue edit "$ISSUE" -R "$REPO" --add-label needs-human >/dev/null 2>&1 || true
+            say "The build agent's change was **rejected by the safety check** and not published:
+          $(cat "$A/flags.md")
+
+          ([run]($RUN_URL))"
+            exit 1
+          fi
+
+          git switch -c "$BRANCH"
+          git apply --index "$A/agent.patch"
+
+          title=$(jq -r '.title // ""' "$A/result.json" | tr -d '\000-\037`' | cut -c1-70)
+          [ -n "$title" ] || title="Agent change for issue #$ISSUE"
+          printf '%s\n\nDrafted by the Duo Dash build agent for #%s.\n' "$title" "$ISSUE" > "$A/commit.txt"
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -q -F "$A/commit.txt"
+          git push -q origin "$BRANCH"
+
+          sed "s#<BRANCH>#$BRANCH#g" .github/agent/testing.md > "$A/testing.md"
+          python3 -I - "$A" "$ISSUE" "$BRANCH" "$REQUESTER" "$RUN_URL" <<'PY'
+          import json, re, sys
+          a, issue, branch, requester, run = sys.argv[1:6]
+          r = json.load(open(f"{a}/result.json", encoding="utf-8"))
+          def clean(s, n=4000):
+              s = str(s)[:n]
+              s = re.sub(r"<!--.*?-->", "", s, flags=re.S)
+              s = re.sub(r"(?<![\w`])@(?=[A-Za-z0-9-])", "@​", s)
+              return re.sub(r"(?m)^\s*/agent", "`/agent`", s).strip()
+          def bullets(xs):
+              xs = [clean(x, 500) for x in (xs or []) if str(x).strip()]
+              return "\n".join(f"- {x}" for x in xs) if xs else "- None listed"
+          flags = open(f"{a}/flags.md", encoding="utf-8").read().strip()
+          status = {"implemented": "Implemented", "partial": "**Partial**: see Notes",
+                    "not_attempted": "Not attempted"}.get(r.get("status"), "Unknown")
+          parts = [
+              f"Refs #{issue}. Drafted by the Duo Dash build agent at the request of `{requester}` ([run]({run})).",
+              "> [!WARNING]\n> Written by an AI agent from an issue that may contain untrusted text. "
+              "**Not compiled or tested.** Review the diff, then build and test locally before "
+              "marking ready or merging. Nothing merges automatically.",
+              f"**Status:** {status}",
+              "## Summary\n" + clean(r.get("summary", "")),
+              "## Changes\n" + bullets(r.get("changes")),
+              "## Needs a closer look\n" + (flags or "- Nothing flagged by the patch check"),
+              "## New dependencies, permissions or services\n" + bullets(r.get("new_dependencies")),
+              "## Risks\n" + bullets(r.get("risks")),
+              "## Tests the agent suggests\n" + bullets(r.get("tests_to_run")),
+              open(f"{a}/testing.md", encoding="utf-8").read().strip(),
+          ]
+          if r.get("reason"):
+              parts.insert(3, "## Notes\n" + clean(r["reason"], 1500))
+          parts.append("## Owner checklist\n- [ ] Diff read, nothing outside the issue's scope\n"
+                       "- [ ] Unit tests pass locally\n- [ ] Built with zero warnings\n"
+                       "- [ ] Tried on the device (folded, unfolded, half-open)\n"
+                       "- [ ] Docs updated if behaviour changed")
+          open(f"{a}/body.md", "w", encoding="utf-8").write("\n\n".join(parts) + "\n")
+          PY
+
+          if url=$(gh pr create -R "$REPO" --draft --base "$BASE" --head "$BRANCH" --title "$title" --body-file "$A/body.md" --label agent 2>/dev/null) \
+             || url=$(gh pr create -R "$REPO" --draft --base "$BASE" --head "$BRANCH" --title "$title" --body-file "$A/body.md"); then
+            number=$(gh pr view "$url" -R "$REPO" --json number --jq .number)
+            echo "pr_number=$number" >> "$GITHUB_OUTPUT"
+            say "Draft pull request: $url. It hasn't been compiled; the PR lists the commands to build and test it locally."
+          else
+            say "The build agent pushed branch \`$BRANCH\` but couldn't open the pull request (is *Allow GitHub Actions to create and approve pull requests* turned on?). Open it from https://github.com/$REPO/compare/$BASE...$BRANCH?expand=1"
+          fi
+          gh issue edit "$ISSUE" -R "$REPO" --remove-label "agent:build" >/dev/null 2>&1 || true
+
+  review:
+    needs: publish
+    if: needs.publish.outputs.pr_number != ''
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+    uses: ./.github/workflows/pr-review.yml
+    with:
+      pr_number: ${{ fromJSON(needs.publish.outputs.pr_number) }}
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+  report-failure:
+    needs: [gate, build, publish]
+    if: always() && needs.gate.outputs.run == 'true' && (needs.build.result == 'failure' || needs.build.result == 'cancelled')
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue comment "$ISSUE" -R "$REPO" --body "The build agent stopped before finishing (timeout, turn limit or error), so no pull request was opened. Details: $RUN_URL" >/dev/null

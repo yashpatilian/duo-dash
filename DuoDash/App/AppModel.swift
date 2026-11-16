@@ -4,7 +4,7 @@ import Observation
 
 /// The screens reachable from the dock.
 enum DockItem: String, CaseIterable, Identifiable {
-    case home, maps, music, spotify, phone, messages, settings
+    case home, maps, music, spotify, phone, messages, calendar, weather, car, homekit, dashcam, settings
 
     var id: String { rawValue }
 
@@ -16,6 +16,11 @@ enum DockItem: String, CaseIterable, Identifiable {
         case .spotify: "Spotify"
         case .phone: "Phone"
         case .messages: "Messages"
+        case .calendar: "Calendar"
+        case .weather: "Weather"
+        case .car: "Car"
+        case .homekit: "Home"
+        case .dashcam: "Dashcam"
         case .settings: "Settings"
         }
     }
@@ -28,6 +33,11 @@ enum DockItem: String, CaseIterable, Identifiable {
         case .spotify: "headphones"
         case .phone: "phone.fill"
         case .messages: "message.fill"
+        case .calendar: "calendar"
+        case .weather: "cloud.sun.fill"
+        case .car: "car.fill"
+        case .homekit: "house.fill"
+        case .dashcam: "video.fill"
         case .settings: "gearshape.fill"
         }
     }
@@ -35,7 +45,7 @@ enum DockItem: String, CaseIterable, Identifiable {
 
 extension DockItem {
     /// The app tiles in the dock, in CarPlay order. Home (the dashboard) sits apart.
-    static let apps: [DockItem] = [.maps, .music, .spotify, .phone, .messages, .settings]
+    static let apps: [DockItem] = [.maps, .music, .spotify, .phone, .messages, .calendar, .weather, .car, .homekit, .dashcam, .settings]
 
     /// Top and bottom colours of the app tile, like an iOS app icon.
     var tileColors: [Color] {
@@ -46,12 +56,23 @@ extension DockItem {
         case .spotify: [Color(red: 0.16, green: 0.20, blue: 0.18), Color(red: 0.05, green: 0.06, blue: 0.06)]
         case .phone: [Color(red: 0.40, green: 0.89, blue: 0.43), Color(red: 0.16, green: 0.73, blue: 0.29)]
         case .messages: [Color(red: 0.40, green: 0.89, blue: 0.43), Color(red: 0.16, green: 0.73, blue: 0.29)]
+        case .calendar: [Color(white: 1.0), Color(white: 0.93)]
+        case .weather: [Color(red: 0.30, green: 0.62, blue: 0.98), Color(red: 0.12, green: 0.40, blue: 0.85)]
+        case .car: [Color(red: 0.30, green: 0.62, blue: 1.0), Color(red: 0.08, green: 0.36, blue: 0.86)]
+        case .homekit: [Color(red: 1.00, green: 0.70, blue: 0.20), Color(red: 0.98, green: 0.52, blue: 0.10)]
+        case .dashcam: [Color(red: 0.25, green: 0.25, blue: 0.28), Color(red: 0.08, green: 0.08, blue: 0.10)]
         case .settings: [Color(white: 0.62), Color(white: 0.42)]
         }
     }
 
-    /// Asset name of the official app icon, if one is rendered locally.
+    /// Asset name of the official app icon (personal builds only; the commercial edition
+    /// draws its own SF Symbol tiles and doesn't ship these images).
     var officialIconAsset: String? {
+        Edition.current.usesOfficialIcons ? bundledIconAsset : nil
+    }
+
+    /// The official icon's name in BrandedIcons.xcassets, whatever the edition.
+    var bundledIconAsset: String? {
         switch self {
         case .home: nil   // the dashboard button is a plain grid, as in CarPlay
         case .maps: "AppIconMaps"
@@ -59,13 +80,23 @@ extension DockItem {
         case .spotify: "AppIconSpotify"
         case .phone: "AppIconPhone"
         case .messages: "AppIconMessages"
+        case .calendar: "AppIconCalendar"
+        case .weather: "AppIconWeather"
+        case .car: nil
+        case .homekit: "AppIconHome"
+        case .dashcam: nil
         case .settings: "AppIconSettings"
         }
     }
 
     /// Glyph colour on the tile.
     var glyphColor: Color {
-        self == .spotify ? Color(red: 0.12, green: 0.84, blue: 0.38) : .white
+        switch self {
+        case .spotify: Color(red: 0.12, green: 0.84, blue: 0.38)
+        case .calendar: Color(red: 0.98, green: 0.24, blue: 0.22)
+        case .dashcam: Color(red: 1.0, green: 0.27, blue: 0.23)
+        default: .white
+        }
     }
 }
 
@@ -127,13 +158,32 @@ final class AppModel {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         let restored = defaults.string(forKey: Self.selectedKey).flatMap(DockItem.init(rawValue:)) ?? .home
+        showsAppGrid = restored == .home && defaults.bool(forKey: Self.gridKey)
         selected = restored
         visited = [restored]
         dockOrder = Self.resolvedOrder(saved: defaults.stringArray(forKey: Self.orderKey))
         Self.current = self
     }
 
+    /// Home shows CarPlay's app grid instead of the Dashboard (remembered).
+    var showsAppGrid = false {
+        didSet { defaults.set(showsAppGrid, forKey: Self.gridKey) }
+    }
+    private static let gridKey = "home.grid"
+
+    /// The dock's bottom button, as in CarPlay: from an app it goes to the Dashboard;
+    /// on Home it switches between the Dashboard and the app grid.
+    func homeButtonTapped() {
+        if selected == .home {
+            withAnimation(.snappy(duration: 0.3)) { showsAppGrid.toggle() }
+        } else {
+            showsAppGrid = false
+            open(.home)
+        }
+    }
+
     func open(_ item: DockItem) {
+        if item != .home { showsAppGrid = false }
         guard selected != item else { return }
         // Screens stay alive while hidden, so a text field on the old screen could
         // keep the keyboard (and pop it up again on return). Drop it on every switch.

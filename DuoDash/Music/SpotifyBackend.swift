@@ -16,6 +16,20 @@ struct SpotifyItem: Identifiable, Hashable, Sendable {
     var isPlayable = true
 
     var id: String { identifier }
+
+    /// Tapping it opens a page of its songs rather than playing it. App Remote flags only
+    /// feed sections as containers: playlists, albums, artists and shows come back as plain
+    /// playable items, so the URI decides (tracks and episodes play straight away).
+    var opensAsPage: Bool {
+        isContainer || Self.isCollection(uri: uri)
+    }
+
+    static func isCollection(uri: String) -> Bool {
+        let parts = uri.lowercased().split(separator: ":").map(String.init)
+        guard parts.first == "spotify" else { return false }
+        if parts.contains("track") || parts.contains("episode") { return false }
+        return parts.contains { ["playlist", "album", "artist", "show", "collection", "station"].contains($0) }
+    }
 }
 
 /// What Spotify reports about its player.
