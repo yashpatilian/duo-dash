@@ -8,3 +8,7 @@
 DUODASH_EDITION = commercial
 DUODASH_DISPLAY_NAME = Duo Dash
 DUODASH_APP_ICON = AppIcon
+
+// The store build's own bundle ID: brand-only, never a person's name. The welcome tour's
+// Spotify step shows the running app's bundle ID, so a personal one would appear on screen.
+DUODASH_BUNDLE_ID = com.duodash.app

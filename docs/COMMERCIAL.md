@@ -131,8 +131,9 @@ Declare what the code actually does; nothing is used for tracking and there are 
       the `NSHomeKitUsageDescription`. Review may ask why a car app needs HomeKit: garage
       door on arrival.
 - [ ] MusicKit on the App ID if catalogue search is turned on.
-- [ ] Bundle ID, team and version/build numbers set for distribution (not
-      `com.example.duodash`).
+- [ ] Register the bundle ID `com.duodash.app` (set in `Config/Commercial.xcconfig`) and set
+      the team and version/build numbers for distribution. Keep the ID brand-only, with no
+      personal name: the Spotify setup step in the welcome tour shows it on screen.
 
 ### Speech models (see docs/PROJECT_NOTES.md, "speech models in release builds")
 - [ ] Whisper (small.en or large-v3 turbo) and Kokoro ship with the app and are the default
