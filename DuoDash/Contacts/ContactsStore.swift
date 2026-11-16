@@ -104,6 +104,14 @@ enum PhoneNumber {
         return URL(string: "tel://\(encoded)")
     }
 
+    /// `facetime-audio:` URL, the fallback on devices without a cellular radio (iPad).
+    static func faceTimeAudioURL(_ raw: String) -> URL? {
+        let cleaned = digits(raw)
+        guard !cleaned.isEmpty else { return nil }
+        let encoded = cleaned.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "+"))) ?? cleaned
+        return URL(string: "facetime-audio://\(encoded)")
+    }
+
     /// Contacts' label (e.g. `_$!<Mobile>!$_`) as plain text.
     static func label(_ raw: String?) -> String {
         guard let raw, !raw.isEmpty else { return "phone" }
@@ -246,6 +254,14 @@ final class ContactsStore {
                 guard let self else { return }
                 if success {
                     self.logRecent(.call, to: recipient)
+                } else if let facetime = PhoneNumber.faceTimeAudioURL(recipient.number) {
+                    // iPad, or an iPhone without a SIM: fall back to a FaceTime audio call.
+                    UIApplication.shared.open(facetime) { ok in
+                        Task { @MainActor in
+                            if ok { self.logRecent(.call, to: recipient) }
+                            else { self.notice = "This device can't make phone calls. On iPad, turn on Calls from iPhone in Settings → FaceTime." }
+                        }
+                    }
                 } else {
                     self.notice = "This device can't make phone calls."
                 }

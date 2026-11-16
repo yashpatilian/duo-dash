@@ -6,8 +6,10 @@ it for you (see the end of this guide).
 
 ## What you need
 - **A Mac** with **Xcode 27.1 or later** (free from the Mac App Store).
-- **An iPhone on iOS 26 or later.** It's designed for the foldable **iPhone Duo** (cover
-  screen, unfolded, half-open and Split View) and works on any iPhone.
+- **An iPhone Duo, or any iPhone or iPad, on iOS 26 or later.** It's designed for the
+  foldable **iPhone Duo** (cover screen, unfolded, half-open and Split View) and also works on
+  other iPhones and iPads, including iPad Split View and Stage Manager. On an iPad, calls go
+  through your iPhone (Settings → FaceTime → Calls from iPhone) or FaceTime audio.
 - **An Apple ID signed in to Xcode.**
   - A free Apple ID works, but iOS removes the app after **7 days** and you reinstall it.
   - A paid **Apple Developer Program** membership keeps it for a year.

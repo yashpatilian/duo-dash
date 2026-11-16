@@ -454,7 +454,7 @@ final class DuoDashUITests: XCTestCase {
         let field = app.textFields["maps.search"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
-        field.typeText("Apple Park Visitor Center\n")
+        field.typeText("Stanford University\n")
         let result = app.buttons["maps.result"].firstMatch
         guard result.waitForExistence(timeout: 30) else {
             snapshot("maps-no-results")

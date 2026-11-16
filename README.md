@@ -6,6 +6,9 @@ Unfold an iPhone Duo on a dash mount and it becomes a head unit: maps with turn-
 Apple Music and Spotify, calls and texts, and a voice assistant that plans your trip. It
 follows the CarPlay layout, in one app with nothing to hand off.
 
+Made for the iPhone Duo, and it also runs on any iPhone or iPad on iOS 26: the layout adapts to
+whatever window it's given, so a spare iPhone or an iPad mini on a dash mount works too.
+
 [![Watch the demo](docs/media/demo-poster.jpg)](docs/media/duo-dash-demo.mp4)
 
 *▶ [Watch the demo video](docs/media/duo-dash-demo.mp4)*
@@ -89,7 +92,7 @@ follows the CarPlay layout, in one app with nothing to hand off.
 ## Install
 
 Duo Dash is installed from source with your own Apple ID, using Xcode 27.1 or later and an
-iPhone on iOS 26 or later.
+iPhone Duo (or any iPhone or iPad) on iOS 26 or later.
 
 ```bash
 git clone https://github.com/yashpatilian/duo-dash.git duo-dash && cd duo-dash

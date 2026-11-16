@@ -66,3 +66,11 @@ Source of truth for decisions and status. Update this at the end of each work se
 - Music icon: keep macOS 27's white icon, or supply the iOS one?
 - Restaurant booking: needs a booking partner API (OpenTable/Resy approval); for now the assistant can call the restaurant or open its page.
 - Add OpenAI as a third assistant provider? (the tool layer is provider-neutral)
+
+## Release (2026-11-16)
+- Final suite before release: 126 tests passed (98 unit, 28 UI), 0 failures; marketing captures 4/4.
+- Public release: https://github.com/yashpatilian/duo-dash. It's a single clean commit exported from this
+  branch with `git archive`, leaving out `ci/` and `.github/`. This repo (carplaydupe) stays private
+  and is the working copy. To update the public repo, re-export and push a new commit there.
+- Demo video: 40 s, 1920×1080, rendered with the app-3d-video skill engine from real simulator captures
+  (`MarketingCaptureTests`). The web copy (H.264, about 9 MB) is in docs/media/.

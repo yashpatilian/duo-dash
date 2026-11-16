@@ -6,7 +6,7 @@ asked to **install Duo Dash on their iPhone** or to **work on the code**. People
 
 ## What this project is
 Duo Dash is a SwiftUI iOS app that turns an iPhone (designed around the foldable
-**iPhone Duo**, works on any iPhone on iOS 26+) into a CarPlay-style dashboard for a dash
+**iPhone Duo**, also runs on any iPhone or iPad on iOS 26+) into a CarPlay-style dashboard for a dash
 mount. It's installed by building from source with the user's own Apple developer account.
 There is no App Store build. Licence: personal use only (see [LICENSE](LICENSE)); don't
 publish builds or copies of the code on the user's behalf.
@@ -64,7 +64,7 @@ they still need to do on the phone.
   project edits. Unit tests are in `DuoDashTests/` and UI tests in `DuoDashUITests/`.
   Config lives in `Config/`: `Info.plist`, `Base.xcconfig`, and the git-ignored
   `Local.xcconfig` / `Secrets.xcconfig`.
-- **Build and test** on an iPhone Duo simulator (or any iPhone simulator):
+- **Build and test** on an iPhone Duo simulator (or any iPhone or iPad simulator):
   ```
   xcodebuild test -project DuoDash.xcodeproj -scheme DuoDash \
     -destination 'platform=iOS Simulator,name=iPhone Duo' -only-testing:DuoDashTests

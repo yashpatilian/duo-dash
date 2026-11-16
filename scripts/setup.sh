@@ -1,5 +1,5 @@
 #!/bin/bash
-# Duo Dash setup: signing, optional extras, then build and install on your iPhone.
+# Duo Dash setup: signing, optional extras, then build and install on your iPhone or iPad.
 #
 #   scripts/setup.sh                       # interactive
 #   scripts/setup.sh --team ABCDE12345 --bundle-id com.you.duodash [--icons] [--install]
@@ -78,7 +78,7 @@ if [ "$ICONS" -eq 1 ]; then
   swift scripts/extract-app-icons.swift
 fi
 
-# 5. Optional: build and install on a connected iPhone.
+# 5. Optional: build and install on a connected iPhone or iPad.
 if [ "$INSTALL" -eq 1 ]; then
   if [ -z "$DEVICE" ]; then
     # Physical devices that are reachable right now: "<name>|<udid>".
@@ -88,13 +88,13 @@ if [ "$INSTALL" -eq 1 ]; then
     if [ "$COUNT" -eq 1 ]; then
       DEVICE=${LIST##*|}
     elif [ "$COUNT" -gt 1 ]; then
-      say "More than one iPhone is connected"
+      say "More than one device is connected"
       i=0; while IFS='|' read -r name udid; do i=$((i+1)); echo "  $i) $name ($udid)"; done <<< "$LIST"
       read -r -p "Install on which one? [1-$COUNT]: " PICK
       DEVICE=$(printf '%s\n' "$LIST" | sed -n "${PICK}p" | cut -d'|' -f2)
     fi
   fi
-  [ -n "$DEVICE" ] || fail "No iPhone found. Connect it (cable or same Wi-Fi), unlock it, trust this Mac and turn on Developer Mode (Settings → Privacy & Security), then run: scripts/setup.sh --install"
+  [ -n "$DEVICE" ] || fail "No iPhone or iPad found. Connect it (cable or same Wi-Fi), unlock it, trust this Mac and turn on Developer Mode (Settings → Privacy & Security), then run: scripts/setup.sh --install"
   say "Building for device $DEVICE"
   DD=build/DerivedData
   xcodebuild build -project DuoDash.xcodeproj -scheme DuoDash -destination "id=$DEVICE" \
@@ -105,4 +105,4 @@ if [ "$INSTALL" -eq 1 ]; then
 fi
 
 say "Done"
-echo "Open DuoDash.xcodeproj in Xcode, pick your iPhone and press Run, or run: scripts/setup.sh --install"
+echo "Open DuoDash.xcodeproj in Xcode, pick your iPhone or iPad and press Run, or run: scripts/setup.sh --install"

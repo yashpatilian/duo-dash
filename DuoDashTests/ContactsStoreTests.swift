@@ -114,6 +114,8 @@ final class ContactsStoreTests: XCTestCase {
         XCTAssertEqual(PhoneNumber.digits("1+2"), "12", "only a leading + is kept")
         XCTAssertNotNil(PhoneNumber.dialURL("*#06#"))
         XCTAssertNil(PhoneNumber.dialURL("call me"))
+        XCTAssertEqual(PhoneNumber.faceTimeAudioURL("+61 (400) 000-001")?.absoluteString, "facetime-audio://+61400000001")
+        XCTAssertNil(PhoneNumber.faceTimeAudioURL("call me"))
     }
 
     func testSeedModeNeverTouchesRealData() {
