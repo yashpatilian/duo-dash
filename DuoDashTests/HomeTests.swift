@@ -233,6 +233,7 @@ final class HomeTests: XCTestCase {
         let (model, _) = make()
         XCTAssertNil(model.arrivalSuggestion(distanceToHome: 100, isNavigatingHome: true, speed: 5),
                      "not while leaving home")
+        _ = model.arrivalSuggestion(distanceToHome: 5000, isNavigatingHome: true, speed: 20); _ = model.arrivalSuggestion(distanceToHome: 5000, isNavigatingHome: true, speed: 20)   // leaving home takes 3 good fixes
         XCTAssertNil(model.arrivalSuggestion(distanceToHome: 5000, isNavigatingHome: true, speed: 20))
         XCTAssertNil(model.arrivalSuggestion(distanceToHome: 400, isNavigatingHome: true, speed: 10), "not yet within 300 m")
         let offer = model.arrivalSuggestion(distanceToHome: 280, isNavigatingHome: true, speed: 10)
@@ -249,6 +250,7 @@ final class HomeTests: XCTestCase {
         XCTAssertNil(model.arrivalSuggestion(distanceToHome: 10, isNavigatingHome: false, speed: 0))
 
         // Leave and come back: a new trip.
+        _ = model.arrivalSuggestion(distanceToHome: 3000, isNavigatingHome: false, speed: 20); _ = model.arrivalSuggestion(distanceToHome: 3000, isNavigatingHome: false, speed: 20)   // leaving home takes 3 good fixes
         XCTAssertNil(model.arrivalSuggestion(distanceToHome: 3000, isNavigatingHome: false, speed: 20))
         XCTAssertNotNil(model.arrivalSuggestion(distanceToHome: 200, isNavigatingHome: false, speed: 8))
         model.acceptArrival()
@@ -256,10 +258,32 @@ final class HomeTests: XCTestCase {
         XCTAssertEqual(garage(model).stateText, "Opening…", "Open on the banner opens it")
     }
 
+    /// One stray fix far away (cold start, cell-tower guess) while parked at home must not
+    /// re-arm arrival, and opening by itself needs a real speed reading.
+    func testStrayFixDoesNotOpenTheGarage() {
+        let (model, _) = make()
+        model.autoOpenGarageOnArrival = true
+        _ = model.arrivalSuggestion(distanceToHome: 5000, isNavigatingHome: false, speed: 20)
+        _ = model.arrivalSuggestion(distanceToHome: 5000, isNavigatingHome: false, speed: 20)
+        _ = model.arrivalSuggestion(distanceToHome: 5000, isNavigatingHome: false, speed: 20)
+        let first = model.arrivalSuggestion(distanceToHome: 100, isNavigatingHome: false, speed: 3)
+        XCTAssertEqual(first?.wasPerformed, true, "a real trip home opens it")
+        model.dismissArrival()
+        // Parked at home: one stray far fix, then home again.
+        XCTAssertNil(model.arrivalSuggestion(distanceToHome: 3000, isNavigatingHome: false, speed: nil))
+        XCTAssertNil(model.arrivalSuggestion(distanceToHome: 20, isNavigatingHome: false, speed: nil), "not re-armed by one fix")
+        // A real trip, but the speed is unknown at the end: offer, don't open.
+        for _ in 0..<3 { _ = model.arrivalSuggestion(distanceToHome: 4000, isNavigatingHome: false, speed: 20) }
+        let offer = model.arrivalSuggestion(distanceToHome: 100, isNavigatingHome: false, speed: nil)
+        XCTAssertNotNil(offer)
+        XCTAssertEqual(offer?.wasPerformed, false)
+    }
+
     func testArrivalDistanceAndSpeed() {
         let (model, _) = make()
         model.arrivalDistance = 500
         XCTAssertEqual(model.rearmDistance, 1500)
+        _ = model.arrivalSuggestion(distanceToHome: 2000, isNavigatingHome: false, speed: 20); _ = model.arrivalSuggestion(distanceToHome: 2000, isNavigatingHome: false, speed: 20)   // leaving home takes 3 good fixes
         model.arrivalSuggestion(distanceToHome: 2000, isNavigatingHome: false, speed: 20)
         XCTAssertNil(model.arrivalSuggestion(distanceToHome: 450, isNavigatingHome: false, speed: 25),
                      "passing at speed without a route home")

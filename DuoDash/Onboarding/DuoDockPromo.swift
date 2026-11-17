@@ -1,10 +1,12 @@
 import SwiftUI
 
-/// Copy shared by the onboarding sheet and Settings → Duo Dock.
+/// Copy shared by the onboarding sheet and Settings → Duo Dash Mount.
 enum DuoDockCopy {
     static let headline = "The car mount made for iPhone Duo."
     static let pitch = "Stops the left half sagging and keeps it straight and unfolded, like a head unit you can take with you."
-    static let about = "Duo Dock is a car mount designed for the iPhone Duo. It holds both halves of the unfolded phone on one level cradle, so Duo Dash sits in your car like a built-in screen."
+    static let name = "Duo Dash Mount"
+    static let about = "The Duo Dash mount is a car mount designed for the iPhone Duo. It holds both halves of the unfolded phone on one level cradle, so Duo Dash sits in your car like a built-in screen."
+    static let price = "A$59 for the first 10 orders, then A$70. Register your interest and we'll email you when it's ready."
     static let benefits: [(symbol: String, text: String)] = [
         ("ruler", "Both halves held level, so the left half never sags."),
         ("rectangle.split.2x1", "Stays unfolded and straight, like a built-in head unit."),
@@ -12,7 +14,7 @@ enum DuoDockCopy {
     ]
 }
 
-/// The last page of the welcome tour: a sheet promoting the Duo Dock car mount.
+/// The last page of the welcome tour: a sheet promoting the Duo Dash car mount.
 struct DuoDockPromoSheet: View {
     let layout: OnboardingLayout
     let get: () -> Void
@@ -79,7 +81,7 @@ struct DuoDockPromoSheet: View {
 
     private var copyText: some View {
         VStack(alignment: .leading, spacing: layout.compact ? 8 : 12) {
-            Text("DUO DOCK").font(.subheadline.weight(.heavy)).kerning(1.5).foregroundStyle(Theme.accent)
+            Text("DUO DASH MOUNT").font(.subheadline.weight(.heavy)).kerning(1.5).foregroundStyle(Theme.accent)
                 .accessibilityIdentifier("onboarding.page.promo")
             Text(DuoDockCopy.headline)
                 .font(layout.compact ? .title.weight(.bold) : .largeTitle.weight(.bold))
@@ -89,6 +91,10 @@ struct DuoDockPromoSheet: View {
                 .font(layout.compact ? .body : .title3)
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
+            Text(DuoDockCopy.price)
+                .font(layout.compact ? .subheadline.weight(.semibold) : .headline)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("dock.promo.price")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -96,7 +102,7 @@ struct DuoDockPromoSheet: View {
     private var buttons: some View {
         GlassEffectContainer(spacing: 10) {
             VStack(spacing: 10) {
-                OnboardingButton(title: "Get Duo Dock", symbol: "arrow.up.forward", prominent: true,
+                OnboardingButton(title: "Register interest", symbol: "arrow.up.forward", prominent: true,
                                  id: "dock.promo.get", glass: glass, action: get)
                 OnboardingButton(title: "Not now", id: "dock.promo.notNow", glass: glass, glassID: "secondary", action: notNow)
             }

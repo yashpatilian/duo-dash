@@ -127,8 +127,8 @@ jobs:
             --model claude-opus-5-5
             --max-turns 30
             --permission-mode default
-            --allowedTools "Read,Glob,Grep,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh issue view:*),Bash(git log:*),Bash(git diff:*)"
-            --disallowedTools "Edit,MultiEdit,Write,NotebookEdit,WebFetch,WebSearch,Bash(gh pr review:*),Bash(gh pr merge:*),Bash(gh pr comment:*),Bash(gh pr edit:*),Bash(gh api:*),Bash(curl:*),Bash(wget:*)"
+            --allowedTools "Read(./**),Glob,Grep,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh issue view:*),Bash(git log:*),Bash(git diff:*)"
+            --disallowedTools "Edit,MultiEdit,Write,NotebookEdit,WebFetch,WebSearch,Read(/proc/**),Read(/etc/**),Read(~/**),Bash(env:*),Bash(printenv:*),Bash(cat:*),Bash(gh pr review:*),Bash(gh pr merge:*),Bash(gh pr comment:*),Bash(gh pr edit:*),Bash(gh api:*),Bash(curl:*),Bash(wget:*)"
             --json-schema '{"type":"object","additionalProperties":false,"required":["verdict","review_markdown","suspicious","notes"],"properties":{"verdict":{"type":"string","enum":["looks_good","changes_suggested","needs_human"]},"review_markdown":{"type":"string"},"suspicious":{"type":"boolean"},"notes":{"type":"string"}}}'
 
   post:
@@ -163,6 +163,8 @@ jobs:
               text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
               text = re.sub(r"(?<![\w`])@(?=[A-Za-z0-9-])", "@​", text)
               text = re.sub(r"(?m)^\s*/agent", "`/agent`", text).strip() or "(empty review)"
+              if re.search(r"sk-ant-|gh[pousr]_[A-Za-z0-9]|github_pat_|-----BEGIN|AKIA[0-9A-Z]{16}|[A-Za-z0-9+/]{120,}", text):
+                  text = "The review looked like it contained a secret, so it was not posted. Please review this one by hand."
               head = {"looks_good": "Looks good to the agent",
                       "changes_suggested": "Changes suggested",
                       "needs_human": "Needs a human"}.get(r.get("verdict"), "Review")

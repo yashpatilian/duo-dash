@@ -52,10 +52,11 @@ final class AssistantUITests: XCTestCase {
 
     func testAssistantPlansAndStartsARouteFromATranscript() throws {
         launch(transcript: "take me to Stanford University")
-        let open = app.buttons["assistant.open"]
+        let open = app.buttons.onScreen("assistant.open")
         XCTAssertTrue(open.waitForExistence(timeout: 5), "assistant button missing on Maps")
-        XCTAssertTrue(open.isHittable)
-        open.tap()
+        // Over the map, XCUITest's hit test lands on MapKit's annotation container (iOS 27), so
+        // check a real touch opens the panel instead of `isHittable`.
+        open.tapCentre()
 
         let panel = app.descendants(matching: .any)["assistant.panel"]
         XCTAssertTrue(panel.waitForExistence(timeout: 5), "assistant panel did not open")
@@ -87,7 +88,7 @@ final class AssistantUITests: XCTestCase {
 
     func testPlaceSearchShowsCardsOnWideWindow() throws {
         launch(transcript: "find coffee near me", canvas: "820x580")
-        app.buttons["assistant.open"].tap()
+        app.buttons.onScreen("assistant.open").tap()
         let card = app.descendants(matching: .any)["assistant.result"].firstMatch
         guard card.waitForExistence(timeout: 40) else {
             snapshot("assistant-no-results")
@@ -101,11 +102,12 @@ final class AssistantUITests: XCTestCase {
 
     func testPanelOpensAndClosesOnNarrowWindow() {
         launch(transcript: nil, canvas: "340x600")
-        let open = app.buttons["assistant.open"]
+        let open = app.buttons.onScreen("assistant.open")
         XCTAssertTrue(open.waitForExistence(timeout: 5))
-        open.tap()
+        open.tapCentre()
         XCTAssertTrue(app.descendants(matching: .any)["assistant.panel"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["assistant.mic"].isHittable)
+        let mic = app.buttons["assistant.mic"]
+        XCTAssertTrue(mic.exists && !mic.frame.isEmpty && app.windows.firstMatch.frame.contains(CGPoint(x: mic.frame.midX, y: mic.frame.midY)), "mic not on screen")
         let field = app.textFields["assistant.field"]
         XCTAssertTrue(field.exists)
         snapshot("assistant-narrow")

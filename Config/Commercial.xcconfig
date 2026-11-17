@@ -12,3 +12,11 @@ DUODASH_APP_ICON = AppIcon
 // The store build's own bundle ID: brand-only, never a person's name. The welcome tour's
 // Spotify step shows the running app's bundle ID, so a personal one would appear on screen.
 DUODASH_BUNDLE_ID = com.duodash.app
+// Spotify through App Remote only (no Web API sign-in): see docs/SPOTIFY_SETUP.md.
+DUODASH_SPOTIFY_MODE = app-remote
+
+// Release-only settings, kept out of the repo (git-ignored Config/Release.xcconfig):
+// the announcements server and the push entitlement. See docs/NOTIFICATIONS.md.
+//   DUODASH_PUSH = YES
+//   DUODASH_NOTIFY_URL = duodash-notify.example.workers.dev
+#include? "Release.xcconfig"

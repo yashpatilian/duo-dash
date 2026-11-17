@@ -7,7 +7,8 @@ struct AppGridView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let items = app.dockOrder
+            // Duo Dash's screens and added apps in dock order, then every other catalogue app on this phone.
+            let items = app.visibleDockEntries + app.installedApps.filter { !app.isInDock($0) }.map(DockEntry.external)
             let columns = proxy.size.width > proxy.size.height ? min(4, items.count) : 3
             let rows = Int(ceil(Double(items.count) / Double(columns)))
             // Icons as large as the space allows: CarPlay's are big, finger-friendly squares.
@@ -20,7 +21,7 @@ struct AppGridView: View {
                 ScrollView {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: columns), spacing: 22) {
                         ForEach(items) { item in
-                            AppGridIcon(item: item, size: icon) { app.open(item) }
+                            AppGridIcon(entry: item, size: icon) { app.open(item) }
                         }
                     }
                     .padding(.horizontal, 20)
@@ -38,7 +39,7 @@ struct AppGridView: View {
 }
 
 private struct AppGridIcon: View {
-    let item: DockItem
+    let entry: DockEntry
     let size: CGFloat
     let action: () -> Void
 
@@ -46,16 +47,16 @@ private struct AppGridIcon: View {
         Button(action: action) {
             VStack(spacing: 8) {
                 Group {
-                    if let asset = item.officialIconAsset {
+                    if let asset = entry.dockItem?.officialIconAsset {
                         Image(asset).resizable().scaledToFit()
                     } else {
-                        AppTile(item: item, size: size)
+                        DockEntryTile(entry: entry, size: size)
                     }
                 }
                 .frame(width: size, height: size)
                 .clipShape(RoundedRectangle(cornerRadius: size * 0.225, style: .continuous))
                 .shadow(color: .black.opacity(0.35), radius: 8, y: 4)
-                Text(item.title)
+                Text(entry.title)
                     .font(.system(size: max(15, min(19, size * 0.16)), weight: .medium))
                     .foregroundStyle(.white)
                     .lineLimit(1)
@@ -63,23 +64,16 @@ private struct AppGridIcon: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PressableStyle())
-        .accessibilityLabel(item.title)
-        .accessibilityIdentifier("grid.\(item.rawValue)")
+        .accessibilityLabel(entry.title)
+        .accessibilityIdentifier("grid.\(entry.id)")
     }
 }
 
-/// A dark, softly lit wallpaper in the spirit of CarPlay's default ones.
+/// A dark, softly lit wallpaper in the spirit of CarPlay's default ones. Duo Dash Pro → Themes
+/// can swap it for another (`ThemeSettings.wallpaper`).
 struct CarPlayWallpaper: View {
     var body: some View {
-        MeshGradient(width: 3, height: 3, points: [
-            [0, 0], [0.5, 0], [1, 0],
-            [0, 0.5], [0.62, 0.42], [1, 0.5],
-            [0, 1], [0.5, 1], [1, 1],
-        ], colors: [
-            Color(red: 0.03, green: 0.05, blue: 0.12), Color(red: 0.06, green: 0.09, blue: 0.22), Color(red: 0.02, green: 0.03, blue: 0.08),
-            Color(red: 0.05, green: 0.14, blue: 0.26), Color(red: 0.16, green: 0.12, blue: 0.36), Color(red: 0.05, green: 0.08, blue: 0.20),
-            Color(red: 0.01, green: 0.02, blue: 0.05), Color(red: 0.04, green: 0.10, blue: 0.18), Color(red: 0.02, green: 0.02, blue: 0.06),
-        ])
-        .ignoresSafeArea()
+        WallpaperView(wallpaper: ThemeSettings.shared.effectiveWallpaper)
+            .ignoresSafeArea()
     }
 }

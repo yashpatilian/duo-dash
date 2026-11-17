@@ -16,3 +16,15 @@ DuoDash/Assets.xcassets/AppIconLocal.appiconset/
 # Claude Code agent worktrees (local only)
 .claude/worktrees/
 ci-results/
+# Release-only settings (announcements server URL)
+Config/Release.xcconfig
+# Cloud and signing secrets (never commit)
+.dev.vars
+.wrangler/
+node_modules/
+.env
+.env.*
+*.p8
+*.p12
+*.mobileprovision
+*.cer

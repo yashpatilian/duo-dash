@@ -20,7 +20,9 @@ final class DashcamModel {
     static let heatPausedText = "Phone too hot: recording paused until it cools"
     static let heatReducedText = "Phone is hot: recording at 720p"
 
-    private(set) var state: DashcamState = .idle
+    private(set) var state: DashcamState = .idle {
+        didSet { if state != oldValue { updateImpactMonitoring() } }
+    }
     /// When the current run of recording began (for the REC timer).
     private(set) var recordingStartedAt: Date?
     private(set) var quality: DashcamQuality = .hd1080
@@ -32,6 +34,17 @@ final class DashcamModel {
     private(set) var isSaving = false
     /// A one-off message for the screen: clip saved, storage low, Photos result.
     var message: String?
+    /// Shown over every screen after impact detection (Duo Dash Pro) saved a clip.
+    var impactBanner: String?
+
+    /// False while this edition needs Pro for the dashcam and the user doesn't have it
+    /// (`ProGate.dashcamAvailable`): it never records then. Set by the app.
+    var accessAllowed = true {
+        didSet {
+            guard accessAllowed != oldValue else { return }
+            if !accessAllowed { stop() }
+        }
+    }
 
     let settings: DashcamSettings
     let isDemo: Bool
@@ -44,6 +57,8 @@ final class DashcamModel {
     @ObservationIgnored var photoSaver: ([URL]) async throws -> Void
     @ObservationIgnored var now: () -> Date = { .now }
     @ObservationIgnored let segmentDuration: Duration
+    /// Duo Dash Pro: saves a clip when the phone feels a crash-like jolt while recording.
+    @ObservationIgnored private let impactMonitor: ImpactMonitor?
 
     /// The file being written now.
     @ObservationIgnored private(set) var currentSegment: URL?
@@ -90,7 +105,12 @@ final class DashcamModel {
         self.freeSpace = freeSpace ?? { [base = storage.base] in DashcamStorage.freeSpace(at: base) }
         self.thermalState = thermalState ?? { ProcessInfo.processInfo.thermalState }
         self.photoSaver = photoSaver ?? (recorder.isDemo ? { _ in } : DashcamPhotos.save)
+        self.impactMonitor = observesLifecycle ? ImpactMonitor() : nil
         recorder.onEvent = { [weak self] event in self?.handle(event) }
+        impactMonitor?.onImpact = { [weak self] in
+            guard let self else { return }
+            Task { await self.handleImpact() }
+        }
         storage.prune(keeping: segmentLimit, protected: [])
         reloadClips()
 
@@ -113,10 +133,10 @@ final class DashcamModel {
     var segmentLimit: Int {
         let seconds = Double(segmentDuration.components.seconds)
         guard seconds > 0 else { return 1 }
-        return max(1, Int((Double(settings.loopMinutes) * 60 / seconds).rounded(.up)))
+        return max(1, Int((Double(settings.effectiveLoopMinutes) * 60 / seconds).rounded(.up)))
     }
 
-    var loopDescription: String { "Last \(settings.loopMinutes) min" }
+    var loopDescription: String { "Last \(settings.effectiveLoopMinutes) min" }
 
     var storageDescription: String {
         let loop = DashcamClip.size(loopBytes)
@@ -133,6 +153,7 @@ final class DashcamModel {
     }
 
     func start() async {
+        guard accessAllowed else { return }
         switch state {
         case .starting, .recording: return
         default: break
@@ -389,6 +410,30 @@ final class DashcamModel {
         beginSegment()
         state = .recording
         scheduleRotation()
+    }
+
+    // MARK: Impact detection (Duo Dash Pro)
+
+    /// Runs the motion sensors only while recording with impact detection on (and Pro).
+    /// Call after the setting or Pro status changes; state changes call it themselves.
+    func updateImpactMonitoring() {
+        guard let impactMonitor else { return }
+        if state == .recording && settings.impactDetectionActive {
+            impactMonitor.start(sensitivity: settings.impactSensitivity)
+        } else {
+            impactMonitor.stop()
+        }
+    }
+
+    static let impactSavedText = "Impact detected: clip saved"
+
+    /// An impact: keep the last two minutes (Save clip's path) and say so on every screen.
+    @discardableResult
+    func handleImpact() async -> DashcamClip? {
+        guard settings.impactDetectionActive, state == .recording else { return nil }
+        let clip = await saveClip(reason: "Impact")
+        if clip != nil { impactBanner = Self.impactSavedText }
+        return clip
     }
 
     // MARK: Saved clips

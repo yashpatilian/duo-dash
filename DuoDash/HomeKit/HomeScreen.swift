@@ -258,7 +258,7 @@ struct HomeArrivalSettingsView: View {
                         .foregroundStyle(Theme.textSecondary)
                 }
             }
-            .tint(Theme.accent)
+            .tint(Theme.positive)
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
             .frame(minHeight: Theme.minTouch)
@@ -278,7 +278,7 @@ struct HomeArrivalSettingsView: View {
                     }
                 }
                 .pickerStyle(.menu)
-                .tint(Theme.accent)
+                .tint(Theme.positive)
                 .frame(minHeight: Theme.minTouch)
                 .accessibilityIdentifier("homekit.arrivalDistance")
             }

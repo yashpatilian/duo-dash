@@ -8,7 +8,10 @@ extension XCUIApplication {
     @discardableResult
     func revealInDock(_ button: XCUIElement, file: StaticString = #filePath, line: UInt = #line) -> Bool {
         let strip = scrollViews["dock.scroll"]
-        guard button.waitForExistence(timeout: 5), strip.exists else { return true }
+        guard button.waitForExistence(timeout: 5), strip.exists, !strip.frame.isEmpty else { return true }
+        // Scaled test canvases can leave the strip with no visible frame: swiping it throws, so
+        // report "not revealed" and let tapDockButton open the app by its link instead.
+        guard strip.isHittable else { return strip.buttons[button.identifier].exists ? false : true }
         // The Home button sits outside the scrolling part; nothing to reveal.
         guard strip.buttons[button.identifier].exists else { return true }
         let vertical = strip.frame.height > strip.frame.width
@@ -48,4 +51,40 @@ extension XCUIApplication {
 
     /// Reveals and taps a dock icon by id ("maps", "settings", …).
     func tapDock(_ id: String) { tapDockButton(buttons["dock.\(id)"]) }
+}
+
+extension XCUIElement {
+    /// `isHittable` as soon as it holds, for elements still sliding in after a transition.
+    func waitForHittable(timeout: TimeInterval = 3) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if exists && isHittable { return true }
+            Thread.sleep(forTimeInterval: 0.2)
+        }
+        return exists && isHittable
+    }
+}
+
+extension XCUIElementQuery {
+    /// The match that is on screen. Kept-alive screens stay in XCUITest's tree on iOS 27
+    /// (opacity 0, hit testing and accessibility off), so an identifier used on two screens,
+    /// such as the assistant button on Home and Maps, can match twice.
+    func onScreen(_ identifier: String, timeout: TimeInterval = 5) -> XCUIElement {
+        let matches = matching(identifier: identifier)
+        _ = matches.firstMatch.waitForExistence(timeout: timeout)
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            if let hit = matches.allElementsBoundByIndex.first(where: { $0.exists && $0.isHittable }) { return hit }
+            Thread.sleep(forTimeInterval: 0.2)
+        } while Date() < deadline
+        return matches.firstMatch
+    }
+}
+
+extension XCUIElement {
+    /// A real touch at the element's centre. For controls XCUITest wrongly reports as not
+    /// hittable on iOS 27 (the Music tab bar at the top of the screen) although a finger works.
+    func tapCentre() {
+        coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
 }

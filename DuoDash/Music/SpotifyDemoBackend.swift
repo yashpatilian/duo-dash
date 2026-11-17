@@ -22,6 +22,17 @@ final class DemoSpotifyBackend: SpotifyBackend {
     private(set) var isConnected = false
     private(set) var authorizeCount = 0
     private(set) var connectCount = 0
+    /// Sign-ins (the PKCE sheet) and silent renewals, for tests.
+    fileprivate(set) var signInCount = 0
+    fileprivate(set) var refreshCount = 0
+    /// Makes the next renewals fail, e.g. `.invalidGrant` (revoked) or `.network`.
+    var refreshFailure: SpotifyAuthError?
+    /// The account isn't on the developer app's allow-list: the PKCE sign-in is refused
+    /// (`-DemoSpotifyNotAllowlisted`).
+    var signInNotAllowed = false
+    /// The Spotify app refuses the account too (`-DemoSpotifyRefused`).
+    var appRemoteRefused = false
+    private(set) var clientIDs: [String?] = []
     private(set) var playedURIs: [String] = []
 
     private struct Song { let uri: String; let title: String; let artist: String; let album: String; let duration: TimeInterval }
@@ -53,9 +64,11 @@ final class DemoSpotifyBackend: SpotifyBackend {
         guard !authorizationAbandoned else { return }
         // Spotify opens, the user agrees, Spotify starts playing (App Remote
         // needs it to) and opens our redirect URL.
-        let denied = authorizationDenied
+        let denied = authorizationDenied, refused = appRemoteRefused
         deliver {
-            if denied {
+            if refused {
+                self.onEvent?(.redirect(URL(string: "duodash://spotify-callback?error=unauthorized_client&error_description=User%20not%20registered")!))
+            } else if denied {
                 self.onEvent?(.redirect(URL(string: "duodash://spotify-callback?error=access_denied")!))
             } else {
                 self.isSpotifyRunning = true
@@ -74,7 +87,14 @@ final class DemoSpotifyBackend: SpotifyBackend {
         if let token = values["access_token"] {
             return .token(token, expiresIn: values["expires_in"].flatMap(TimeInterval.init) ?? 3600)
         }
+        let detail = [values["error"], values["error_description"]?.removingPercentEncoding].compactMap { $0 }.joined(separator: " ")
+        if SpotifyRefusal.isNotAllowed(detail) { return .refused(detail) }
         return .failed(values["error"] == "access_denied" ? "Spotify access wasn't allowed." : "Spotify didn't allow the connection.")
+    }
+
+    func setClientID(_ clientID: String?) {
+        // Recorded for tests; the demo stays configured (the Simulator has no Secrets.xcconfig).
+        clientIDs.append(clientID)
     }
 
     func connect(accessToken: String) {
@@ -263,5 +283,30 @@ final class DemoSpotifyBackend: SpotifyBackend {
             section("demo-section:playlists", "Your playlists", [liked, drive, commute, roadTrip, chill]),
             section("demo-section:made", "Made for you", [mix, discover]),
         ]
+    }
+}
+
+// MARK: - Sign-in
+
+/// The demo's stand-in for the PKCE sign-in sheet and Spotify's token endpoint.
+/// `authorizationDenied` also makes the sign-in fail; `authorizationAbandoned` only affects
+/// the wake-up bounce through Spotify (the real sign-in sheet always reports back, even
+/// when it's closed).
+extension DemoSpotifyBackend: SpotifyAuthorizing {
+    func signIn() async throws -> SpotifyToken {
+        signInCount += 1
+        await Task.yield()
+        if authorizationDenied { throw SpotifyAuthError.denied("Spotify access wasn't allowed.") }
+        if signInNotAllowed { throw SpotifyAuthError.notAllowed("User not registered in the Developer Dashboard") }
+        return SpotifyToken(accessToken: "demo-access-\(signInCount)", expiresAt: .now.addingTimeInterval(3600),
+                            refreshToken: "demo-refresh")
+    }
+
+    func refresh(_ refreshToken: String) async throws -> SpotifyToken {
+        refreshCount += 1
+        await Task.yield()
+        if let refreshFailure { throw refreshFailure }
+        return SpotifyToken(accessToken: "demo-refreshed-\(refreshCount)", expiresAt: .now.addingTimeInterval(3600),
+                            refreshToken: refreshToken)
     }
 }

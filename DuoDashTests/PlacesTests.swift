@@ -20,8 +20,8 @@ final class PlacesTests: XCTestCase {
 
     func testMigrationKeepsSavedPlacesAndAddsHome2AfterHome() throws {
         let d = freshDefaults()
-        let home = SavedPlace(name: "12 Smith St", latitude: -37.81, longitude: 144.96)
-        let work = SavedPlace(name: "Office", latitude: -37.9, longitude: 145.1)
+        let home = SavedPlace(name: "12 Smith St", latitude: 37.29, longitude: -122.04)
+        let work = SavedPlace(name: "Office", latitude: 37.2, longitude: -121.9)
         let legacy = try legacyData(["home": home, "work": work])
         d.set(legacy, forKey: FavouritesStore.legacyKey)
 
@@ -97,11 +97,11 @@ final class PlacesTests: XCTestCase {
 
     func testAddFromMapItemTakesNameAndLocation() {
         let store = FavouritesStore(defaults: freshDefaults())
-        let item = MKMapItem(location: CLLocation(latitude: -37.818, longitude: 144.967), address: nil)
+        let item = MKMapItem(location: CLLocation(latitude: 37.282, longitude: -122.033), address: nil)
         item.name = "Central Station"
         let place = store.add(item: item)
         XCTAssertEqual(place.name, "Central Station")
-        XCTAssertEqual(place.location?.latitude ?? 0, -37.818, accuracy: 1e-9)
+        XCTAssertEqual(place.location?.latitude ?? 0, 37.282, accuracy: 1e-9)
         XCTAssertEqual(place.tileIdentifier, "fav.central-station")
     }
 
@@ -153,14 +153,14 @@ final class PlacesTests: XCTestCase {
         let d = freshDefaults()
         let store = FavouritesStore(defaults: d)
         let beach = store.add(name: "Beach", emoji: "🏖️")
-        store.setLocation(beach.id, coordinate: CLLocationCoordinate2D(latitude: -38.1, longitude: 144.4),
-                          name: "Torquay", address: "Torquay VIC")
+        store.setLocation(beach.id, coordinate: CLLocationCoordinate2D(latitude: 37.0, longitude: -122.6),
+                          name: "Beach", address: "Santa Cruz CA")
         store.setEmoji("uni", to: "🎓")
         store.move(fromOffsets: IndexSet(integer: 3), toOffset: 1)
 
         let reloaded = FavouritesStore(defaults: d)
         XCTAssertEqual(reloaded.places, store.places)
-        XCTAssertEqual(reloaded.place(id: beach.id)?.location?.address, "Torquay VIC")
+        XCTAssertEqual(reloaded.place(id: beach.id)?.location?.address, "Santa Cruz CA")
         XCTAssertEqual(reloaded.place(id: "uni")?.emoji, "🎓")
     }
 
@@ -189,5 +189,23 @@ final class PlacesTests: XCTestCase {
         XCTAssertFalse(MapOrientation.northUp.followPosition(guiding: false).followsUserHeading)
         XCTAssertTrue(MapOrientation.northUp.followPosition(guiding: false).followsUserLocation)
         XCTAssertTrue(MapOrientation.northUp.followPosition(guiding: true).followsUserHeading)
+    }
+
+    /// One unreadable saved place (damaged, or from a newer version) must not wipe the rest.
+    func testOneBadPlaceKeepsTheOthers() throws {
+        let suite = "places.lossy.\(UUID())"
+        let d = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { d.removePersistentDomain(forName: suite) }
+        let good = try JSONEncoder().encode(FavouritesStore.samplePlaces)
+        var array = try XCTUnwrap(JSONSerialization.jsonObject(with: good) as? [Any])
+        array.insert(["id": 42, "nonsense": true], at: 1)
+        let saved = try JSONSerialization.data(withJSONObject: array)
+        d.set(saved, forKey: FavouritesStore.key)
+        let store = FavouritesStore(defaults: d)
+        XCTAssertEqual(store.places.map(\.id), FavouritesStore.samplePlaces.map(\.id))
+        XCTAssertEqual(d.data(forKey: FavouritesStore.key), saved, "saved data left alone")
+        d.set(Data("not json".utf8), forKey: FavouritesStore.key)
+        _ = FavouritesStore(defaults: d)
+        XCTAssertEqual(d.data(forKey: FavouritesStore.key), Data("not json".utf8), "unreadable data isn't overwritten")
     }
 }

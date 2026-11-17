@@ -11,6 +11,15 @@ struct DashcamScreen: View {
     @State private var confirmDelete: DashcamClip?
 
     var body: some View {
+        // The App Store edition makes the dashcam a Duo Dash Pro feature (ProGate).
+        if dashcam.accessAllowed {
+            camera
+        } else {
+            DashcamUpsellView()
+        }
+    }
+
+    private var camera: some View {
         GeometryReader { proxy in
             let size = proxy.size
             let wide = size.width > size.height && size.width >= 700
@@ -124,7 +133,7 @@ struct DashcamScreen: View {
                     .font(.dashTitle)
                     .multilineTextAlignment(.center)
                 if state == .idle {
-                    Text("Not recording. Point the Duo's rear cameras at the road, then start. It keeps the last \(dashcam.settings.loopMinutes) minutes; Save clip keeps a moment for good.")
+                    Text("Not recording. Point the Duo's rear cameras at the road, then start. It keeps the last \(dashcam.settings.effectiveLoopMinutes) minutes; Save clip keeps a moment for good.")
                         .font(.dashCaption)
                         .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
@@ -360,21 +369,14 @@ struct DashcamSettingsPanel: View {
             Text("Keep the last").font(.dashBody)
             HStack(spacing: Theme.gap) {
                 ForEach(DashcamSettings.loopOptions, id: \.self) { minutes in
-                    let selected = settings.loopMinutes == minutes
-                    Button {
-                        settings.loopMinutes = minutes
-                        dashcam.pruneLoop()
-                    } label: {
-                        Text("\(minutes) min")
-                            .font(.dashBody)
-                            .foregroundStyle(selected ? Theme.onAccent : Theme.textPrimary)
-                            .frame(maxWidth: .infinity, minHeight: Theme.minTouch)
-                            .background(selected ? Theme.accent : Theme.surfaceRaised,
-                                        in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    }
-                    .buttonStyle(PressableStyle())
-                    .accessibilityIdentifier("dashcam.loop.\(minutes)")
-                    .accessibilityAddTraits(selected ? .isSelected : [])
+                    loopButton(minutes, settings: settings)
+                }
+            }
+            // Duo Dash Pro: longer loops.
+            HStack(spacing: Theme.gap) {
+                ForEach(DashcamSettings.proLoopOptions, id: \.self) { minutes in
+                    loopButton(minutes, settings: settings)
+                        .proLocked("dashcam.loop.\(minutes)")
                 }
             }
             Text("Lens").font(.dashBody)
@@ -402,15 +404,139 @@ struct DashcamSettingsPanel: View {
                     Text("Uses the microphone. Off by default.").font(.dashCaption).foregroundStyle(Theme.textSecondary)
                 }
             }
-            .tint(Theme.accent)
+            .tint(Theme.positive)
             .frame(minHeight: Theme.minTouch)
             .accessibilityIdentifier("dashcam.audio")
             Toggle(isOn: $settings.autoStart) {
                 Text("Start when Duo Dash opens").font(.dashBody)
             }
-            .tint(Theme.accent)
+            .tint(Theme.positive)
             .frame(minHeight: Theme.minTouch)
             .accessibilityIdentifier("dashcam.autoStart")
+            DashcamImpactSettings()
         }
+    }
+
+    private func loopButton(_ minutes: Int, settings: DashcamSettings) -> some View {
+        let selected = settings.effectiveLoopMinutes == minutes
+        return Button {
+            settings.loopMinutes = minutes
+            dashcam.pruneLoop()
+        } label: {
+            Text("\(minutes) min")
+                .font(.dashBody)
+                .foregroundStyle(selected ? Theme.onAccent : Theme.textPrimary)
+                .frame(maxWidth: .infinity, minHeight: Theme.minTouch)
+                .background(selected ? Theme.accent : Theme.surfaceRaised,
+                            in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(PressableStyle())
+        .accessibilityIdentifier("dashcam.loop.\(minutes)")
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+/// Duo Dash Pro: save a clip automatically after an impact, and how sensitive that is.
+struct DashcamImpactSettings: View {
+    @Environment(DashcamModel.self) private var dashcam
+
+    var body: some View {
+        @Bindable var settings = dashcam.settings
+        VStack(alignment: .leading, spacing: 10) {
+            Toggle(isOn: $settings.impactDetection) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Save clip on impact").font(.dashBody)
+                    Text("Keeps the last two minutes when the phone feels a crash-like jolt while recording.")
+                        .font(.dashCaption).foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .tint(Theme.positive)
+            .frame(minHeight: Theme.minTouch)
+            .accessibilityIdentifier("dashcam.impact")
+            .onChange(of: settings.impactDetection) { dashcam.updateImpactMonitoring() }
+            HStack(spacing: Theme.gap) {
+                ForEach(ImpactSensitivity.allCases) { level in
+                    let selected = settings.impactSensitivity == level
+                    Button {
+                        settings.impactSensitivity = level
+                        dashcam.updateImpactMonitoring()
+                    } label: {
+                        Text(level.title)
+                            .font(.dashBody)
+                            .foregroundStyle(selected ? Theme.onAccent : Theme.textPrimary)
+                            .frame(maxWidth: .infinity, minHeight: Theme.minTouch)
+                            .background(selected ? Theme.accent : Theme.surfaceRaised,
+                                        in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .buttonStyle(PressableStyle())
+                    .accessibilityIdentifier("dashcam.impact.\(level.rawValue)")
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                }
+            }
+            .disabled(!settings.impactDetection)
+            Text("High catches lighter bumps; Low only hard ones.")
+                .font(.dashCaption).foregroundStyle(Theme.textSecondary)
+        }
+        .proLocked("dashcam.impact.locked", badge: .topTrailing)
+    }
+}
+
+/// The dashcam in the App Store edition without Pro: what it does, and the way to unlock it.
+struct DashcamUpsellView: View {
+    @Environment(ProStore.self) private var pro
+
+    private let points: [(String, String)] = [
+        ("video.fill", "Records the road in a loop while Duo Dash is on screen"),
+        ("bookmark.fill", "Save clip keeps the last two minutes for good"),
+        ("car.side.rear.and.collision.and.car.side.front", "Saves a clip by itself after an impact"),
+        ("location.fill", "Every clip carries its GPS track"),
+    ]
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 18) {
+                Image(systemName: "video.fill")
+                    .font(.system(size: 34, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 76, height: 76)
+                    .background(LinearGradient(colors: ProStyle.gold, startPoint: .top, endPoint: .bottom),
+                                in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .accessibilityHidden(true)
+                HStack(spacing: 8) {
+                    Text("Dashcam").font(.dashHero)
+                    ProBadge()
+                }
+                Text("Turn the iPhone's rear camera into a dashcam.")
+                    .font(.dashBody).foregroundStyle(Theme.textSecondary).multilineTextAlignment(.center)
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(points, id: \.1) { symbol, text in
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: symbol).font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(ProStyle.gold[1]).frame(width: 30)
+                            Text(text).font(.dashBody.weight(.regular)).fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+                .padding(18)
+                .frame(maxWidth: 520, alignment: .leading)
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.corner, style: .continuous))
+                Button { pro.showPaywall() } label: {
+                    Label("Unlock with Duo Dash Pro", systemImage: "star.fill")
+                        .font(.dashBody)
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: Theme.minTouch)
+                }
+                .buttonStyle(.glassProminent)
+                .buttonBorderShape(.capsule)
+                .tint(ProStyle.gold[1])
+                .accessibilityIdentifier("dashcam.upsell.unlock")
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity)
+        }
+        .scrollIndicators(.hidden)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("dashcam.upsell")
     }
 }

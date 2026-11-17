@@ -34,6 +34,10 @@ final class BLEOBDTransport: NSObject, OBDTransport {
     private var buffer = ELMReceiveBuffer()
     private var pending: CheckedContinuation<[String], Error>?
     private var timeoutTask: Task<Void, Never>?
+    /// A command timed out, so its reply may still be on the way. Until that reply's `>` prompt
+    /// arrives (or a short wait passes), the next command isn't sent, so late replies can't be
+    /// read as the answer to a later command.
+    private var expectingLateReply = false
     private var connectTimeoutTask: Task<Void, Never>?
     private var isRunning = false
     /// Off after Forget, so the same adapter isn't picked straight back up.
@@ -116,6 +120,11 @@ final class BLEOBDTransport: NSObject, OBDTransport {
         guard case .ready = linkState, let peripheral, let writeCharacteristic else { throw OBDError.notConnected }
         guard pending == nil else { throw OBDError.busy }
         guard let data = (command + "\r").data(using: .ascii) else { throw OBDError.writeFailed("Not ASCII") }
+        if expectingLateReply {
+            for _ in 0..<6 where expectingLateReply { try? await Task.sleep(for: .milliseconds(50)) }
+            expectingLateReply = false
+        }
+        guard pending == nil else { throw OBDError.busy }
         buffer.reset()
         return try await withCheckedThrowingContinuation { continuation in
             pending = continuation
@@ -131,6 +140,7 @@ final class BLEOBDTransport: NSObject, OBDTransport {
             timeoutTask = Task { [weak self] in
                 try? await Task.sleep(for: timeout)
                 guard !Task.isCancelled else { return }
+                self?.expectingLateReply = true
                 self?.finish(.failure(OBDError.timeout))
             }
         }
@@ -273,7 +283,10 @@ final class BLEOBDTransport: NSObject, OBDTransport {
     private func didReceive(_ characteristic: CBCharacteristic) {
         guard characteristic == notifyCharacteristic, let data = characteristic.value else { return }
         guard pending != nil else {
-            buffer.reset()   // unsolicited text, or a reply that arrived after its timeout
+            // Unsolicited text, or a reply that arrived after its timeout: drop it, and once its
+            // prompt has come the next command can go.
+            if data.contains(UInt8(ascii: ">")) { expectingLateReply = false }
+            buffer.reset()
             return
         }
         if let lines = buffer.append(data) { finish(.success(lines)) }

@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Duo Dash: a car dashboard for iPhone Duo</title>
+  <meta name="description" content="Duo Dash turns the unfolded iPhone Duo into a car dashboard: maps with turn-by-turn, Apple Music and Spotify, calls and messages, a voice assistant, weather, a dashcam and live car data. Free, open source, private by design.">
+  <link rel="canonical" href="https://duodash.app/">
+  <meta name="theme-color" content="#000000">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon-32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/assets/icon-192.png">
+  <link rel="apple-touch-icon" href="/assets/icon-180.png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Duo Dash">
+  <meta property="og:url" content="https://duodash.app/">
+  <meta property="og:title" content="Duo Dash: a car dashboard for iPhone Duo">
+  <meta property="og:description" content="Unfold your iPhone Duo. Meet your car's new dashboard. Maps, music, calls and an assistant on one screen, edge to edge.">
+  <meta property="og:image" content="https://duodash.app/assets/og.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="The Duo Dash dashboard on an unfolded iPhone Duo: a map, music and places to go.">
+  <meta property="og:locale" content="en_AU">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Duo Dash: a car dashboard for iPhone Duo">
+  <meta name="twitter:description" content="Unfold your iPhone Duo. Meet your car's new dashboard.">
+  <meta name="twitter:image" content="https://duodash.app/assets/og.jpg">
+  
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="nav">
+    <nav class="wrap nav-inner" aria-label="Main">
+      <a class="brand" href="/" aria-label="Duo Dash home"><img src="/assets/icon-180.png" alt="" width="28" height="28">Duo Dash</a>
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#pro">Pro</a></li>
+        <li><a href="/mount/">Mount</a></li>
+        <li><a href="#open-source">Open source</a></li>
+      </ul>
+      <a class="btn btn-primary nav-cta" href="#download">Download</a>
+    </nav>
+  </header>
+
+  <main id="main">
+
+    <!-- 1. Hero: the folded phone opens into the dashboard as you scroll -->
+    <section class="hero" id="top" data-scene="hero" aria-labelledby="hero-title">
+      <div class="hero-sticky">
+        <div class="hero-copy" data-hero-copy>
+          <p class="eyebrow">For iPhone Duo</p>
+          <h1 id="hero-title">Duo Dash</h1>
+          <p class="tagline">Unfold your iPhone Duo.<br><span>Meet your car's new dashboard.</span></p>
+          <div class="btn-row" id="download">
+            <a class="btn btn-store" href="#download" aria-label="Download on the App Store (coming soon)">
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+              <span class="store-text"><small>Download on the</small><span>App Store</span></span>
+            </a>
+            <a class="btn btn-ghost" href="#film" data-play-film>Watch the film <span class="chev" aria-hidden="true">›</span></a>
+          </div>
+          <p class="safety-mini"><strong>For passenger use only.</strong> Don't use Duo Dash while driving.</p>
+        </div>
+
+        <div class="hero-stage">
+          <div class="fold" data-fold role="img" aria-label="An iPhone Duo opening like a book to show the Duo Dash dashboard: a map on the left, music, places and car data on the right, and a dock of apps.">
+            <img class="fold-static" src="/assets/duo-home-unfolded-1600.webp" srcset="/assets/duo-home-unfolded-800.webp 800w, /assets/duo-home-unfolded-1600.webp 1600w" sizes="(max-width: 700px) 92vw, 1100px" width="1600" height="1162" alt="" fetchpriority="high">
+            <canvas class="fold-canvas" data-fold-canvas aria-hidden="true"></canvas>
+          </div>
+        </div>
+        <p class="hero-caption" data-hero-caption><strong>One screen, edge to edge.</strong> Maps, music, calls and an assistant, laid out like a head unit and lined up with the fold.</p>
+      </div>
+    </section>
+
+    <!-- 3. The film -->
+    <section class="section" id="film" aria-labelledby="film-title">
+      <div class="wrap center">
+        <h2 class="headline reveal" id="film-title">See it on the road.</h2>
+        <p class="lede reveal delay-1">Sixty seconds. Real screens from the app.</p>
+        <div class="film-frame reveal-scale">
+          <video data-film muted loop playsinline preload="none" poster="/assets/film-poster.webp" width="1920" height="1080" aria-label="The Duo Dash launch film">
+            <source src="/assets/duo-dash-film.mp4" type="video/mp4">
+          </video>
+          <div class="film-controls">
+            <button class="icon-btn" type="button" data-film-play aria-label="Play the film">
+              <svg data-icon-play viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>
+              <svg data-icon-pause viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" hidden><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
+            </button>
+            <button class="icon-btn" type="button" data-film-sound aria-label="Turn sound on">
+              <svg data-icon-muted viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor"/><path d="m17 9 5 6M22 9l-5 6"/></svg>
+              <svg data-icon-sound viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden><path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Pinned feature story -->
+    <section class="section" id="features" aria-labelledby="features-title">
+      <div class="wrap">
+        <div class="features-head">
+          <h2 class="headline reveal" id="features-title">Everything for the drive.<br>Nothing you don't need.</h2>
+        </div>
+        <div class="pin" data-pin>
+          <div class="pin-visual" aria-hidden="true">
+            <div class="stack">
+              <img class="on" src="/assets/duo-maps-route-1600.webp" srcset="/assets/duo-maps-route-800.webp 800w, /assets/duo-maps-route-1600.webp 1600w" sizes="(max-width: 860px) 92vw, 680px" width="1600" height="1162" alt="" loading="lazy" decoding="async">
+              <img src="/assets/duo-music-player-1600.webp" srcset="/assets/duo-music-player-800.webp 800w, /assets/duo-music-player-1600.webp 1600w" sizes="(max-width: 860px) 92vw, 680px" width="1600" height="1162" alt="" loading="lazy" decoding="async">
+              <img src="/assets/duo-phone-1600.webp" srcset="/assets/duo-phone-800.webp 800w, /assets/duo-phone-1600.webp 1600w" sizes="(max-width: 860px) 92vw, 680px" width="1600" height="1162" alt="" loading="lazy" decoding="async">
+              <img src="/assets/duo-assistant-1600.webp" srcset="/assets/duo-assistant-800.webp 800w, /assets/duo-assistant-1600.webp 1600w" sizes="(max-width: 860px) 92vw, 680px" width="1600" height="1162" alt="" loading="lazy" decoding="async">
+            </div>
+            <ol class="pin-dots"><li class="on"></li><li></li><li></li><li></li></ol>
+            <p class="pin-label" data-pin-label>Maps</p>
+          </div>
+          <div class="pin-steps">
+            <article class="pin-step active" data-step="0" data-label="Maps">
+              <p class="eyebrow">Maps</p>
+              <h3>Knows the way. And the stops.</h3>
+              <p>Turn-by-turn with a clear turn banner and rerouting. <strong>Add a stop for fuel or coffee</strong>, and if the app closes mid-trip it picks up where you were.</p>
+              <ul>
+                <li><strong>Your choice of maps:</strong> Apple Maps, Google Maps or Waze.</li>
+                <li><strong>Saved places</strong> with your own names, one tap away.</li>
+              </ul>
+            </article>
+            <article class="pin-step" data-step="1" data-label="Music">
+              <p class="eyebrow">Music</p>
+              <h3>Your music, front and centre.</h3>
+              <p><strong>Apple Music and Spotify</strong>, with big artwork and controls you can hit without looking twice. Playlists and albums list every song; tap any one to play from there.</p>
+            </article>
+            <article class="pin-step" data-step="2" data-label="Calls and Messages">
+              <p class="eyebrow">Calls &amp; Messages</p>
+              <h3>Your people, one tap away.</h3>
+              <p>Call favourites from your contacts. Reply to texts by voice, or with a quick reply like <strong>"On my way, ETA 5:42"</strong> while you're navigating.</p>
+            </article>
+            <article class="pin-step" data-step="3" data-label="Assistant">
+              <p class="eyebrow">Assistant</p>
+              <h3>Just say where.</h3>
+              <p>"Take me to the airport, but stop for petrol on the way." The assistant finds the stop that <strong>adds the least time</strong>, then starts the trip.</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Bento grid -->
+    <section class="section" id="more" aria-labelledby="more-title">
+      <div class="wrap">
+        <div class="center">
+          <h2 class="headline reveal" id="more-title">And there's more.</h2>
+          <p class="lede reveal delay-1">Your whole drive, on one screen.</p>
+        </div>
+        <div class="bento">
+          <article class="tile reveal">
+            <p class="kicker">Weather</p>
+            <h3>The sky, at a glance.</h3>
+            <p>Hourly and 10-day forecasts, and the weather <strong>where you're going</strong> before you get there.</p>
+            <div class="shot"><img src="/assets/weather-800.webp" srcset="/assets/weather-800.webp 800w, /assets/weather-1600.webp 1600w" sizes="(max-width: 680px) 92vw, 560px" width="800" height="563" alt="Weather with hourly and 10-day forecasts" loading="lazy" decoding="async"></div>
+          </article>
+          <article class="tile reveal delay-1">
+            <p class="kicker">Calendar</p>
+            <h3>Next stop: your next meeting.</h3>
+            <p>Day, Month and Upcoming views. <strong>Tap Go</strong> to drive to any event's place.</p>
+            <div class="shot"><img src="/assets/calendar-800.webp" srcset="/assets/calendar-800.webp 800w, /assets/calendar-1600.webp 1600w" sizes="(max-width: 680px) 92vw, 560px" width="800" height="563" alt="Calendar month view" loading="lazy" decoding="async"></div>
+          </article>
+          <article class="tile reveal">
+            <p class="kicker">Dashcam</p>
+            <h3>Already pointing at the road.</h3>
+            <p>Unfolded on the dash, the rear cameras face forward. <strong>Loop recording</strong> keeps the last few minutes; tap <strong>Save clip</strong> to keep the moment.</p>
+            <div class="shot"><img src="/assets/dashcam-800.webp" srcset="/assets/dashcam-800.webp 800w, /assets/dashcam-1600.webp 1600w" sizes="(max-width: 680px) 92vw, 560px" width="800" height="563" alt="The dashcam recording, with a Save clip button" loading="lazy" decoding="async"></div>
+          </article>
+          <article class="tile reveal delay-1">
+            <p class="kicker">Car data</p>
+            <h3>Talk to your car.</h3>
+            <p>Plug in a Bluetooth <strong>OBD-II</strong> adapter for live speed, RPM, temperatures, battery voltage and check-engine codes in plain English.</p>
+            <div class="shot"><img src="/assets/car-800.webp" srcset="/assets/car-800.webp 800w, /assets/car-1600.webp 1600w" sizes="(max-width: 680px) 92vw, 560px" width="800" height="563" alt="Live car data from an OBD-II adapter" loading="lazy" decoding="async"></div>
+          </article>
+          <article class="tile s2 reveal">
+            <svg class="glyph" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22 24 8l18 14"/><path d="M10 19v21h28V19"/><path d="M16 40V26h16v14M16 31h16M16 36h16"/></svg>
+            <h3>Home, as you arrive.</h3>
+            <p>HomeKit garage doors, lights and scenes as big tiles, and <strong>"Open garage?"</strong> as you pull up. Locks are never opened for you.</p>
+          </article>
+          <article class="tile s2 reveal delay-1">
+            <svg class="glyph" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"><rect x="5" y="10" width="38" height="28" rx="8"/><path d="M20 18v12l10-6z" fill="currentColor"/></svg>
+            <h3>YouTube for passengers.</h3>
+            <p>Videos for the person in the passenger seat. <strong>Never for the driver.</strong></p>
+          </article>
+          <article class="tile s2 reveal delay-2">
+            <svg class="glyph" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m14 15 20 18-10 9V6l10 9-20 18"/></svg>
+            <h3>Opens with your car.</h3>
+            <p>A Shortcuts automation opens Duo Dash <strong>when your phone joins the car's Bluetooth</strong>. Settings walks you through it.</p>
+          </article>
+          <article class="tile tile-split reveal">
+            <div>
+              <p class="kicker">Folded, or on any iPhone and iPad</p>
+              <h3>Fits whatever screen it's on.</h3>
+              <p>On the cover screen, the dock moves to the bottom. On a spare iPhone or an iPad mini, <strong>the layout adapts</strong> to the window it's given.</p>
+            </div>
+            <div class="shot"><img src="/assets/duo-cover-560.webp" width="560" height="781" alt="Duo Dash on the cover screen of a folded iPhone Duo" loading="lazy" decoding="async"></div>
+          </article>
+          <article class="tile reveal delay-1">
+            <svg class="glyph" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M8 20v8M14 14v20M20 9v30M26 16v16M32 12v24M38 19v10"/></svg>
+            <p class="kicker">On-device speech</p>
+            <h3>Your voice stays on the phone.</h3>
+            <p>Dictation runs on <strong>Whisper</strong> and replies are spoken by natural <strong>Kokoro</strong> voices, both on the device. Nothing you say is sent away to be transcribed.</p>
+          </article>
+          <article class="tile s6 tile-privacy reveal">
+            <svg class="glyph" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"><rect x="10" y="21" width="28" height="21" rx="5"/><path d="M16 21v-6a8 8 0 0 1 16 0v6"/></svg>
+            <h3>Private by design.</h3>
+            <p>Your places, contacts, settings and trips stay on your iPhone. No sign-up, no analytics, nothing to sell.</p>
+            <ul class="privacy-points">
+              <li>No account</li>
+              <li>No tracking</li>
+              <li>Data not collected</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Why it exists (after the features) -->
+    <section class="story" aria-label="Why Duo Dash exists">
+      <div class="wrap">
+        <div class="story-line" data-light>
+          <p class="eyebrow">Why Duo Dash</p>
+          <h2>It started with an older car.</h2>
+          <p>A 2006 sedan with a dash worth keeping, and <strong>no screen at all.</strong></p>
+        </div>
+        <div class="story-line" data-light>
+          <h2>Cheap head units weren't the answer.</h2>
+          <p>Slow to start. Short on memory. Thin on sound. And every one of them <strong>tore out the factory look</strong> of the dash.</p>
+        </div>
+        <div class="story-line" data-light>
+          <h2>Then one device replaced three.</h2>
+          <p>The iPhone Duo took over from a phone and an iPad mini. <strong>One thing to carry. One thing to charge.</strong> And a screen for the car that leaves with you.</p>
+        </div>
+        <div class="story-line" data-light>
+          <h2>All it needed was the simple part.</h2>
+          <p>Big buttons. A clean layout. Nothing to fiddle with. <strong>A screen that looks like it belongs</strong>, not a tablet bolted to the console.</p>
+        </div>
+        <div class="story-line story-end" data-light>
+          <h2><span>So, Duo Dash.</span></h2>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Pro -->
+    <section class="section pro" id="pro" aria-labelledby="pro-title">
+      <div class="wrap">
+        <div class="center">
+          <p class="eyebrow reveal">Duo Dash Pro</p>
+          <h2 class="headline reveal pro-title" id="pro-title">Free to drive.<br><span>Pro to make it yours.</span></h2>
+          <p class="lede reveal delay-1">Everything above is free. Pro adds the extras for people who live in the car.</p>
+        </div>
+        <ul class="unlocks">
+          <li class="reveal"><svg viewBox="0 0 32 32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="16" cy="16" r="12"/><path d="M16 4a12 12 0 0 0 0 24z" fill="currentColor"/></svg><strong>Themes</strong><span>Colour and night looks for the whole dash.</span></li>
+          <li class="reveal delay-1"><svg viewBox="0 0 32 32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><rect x="4" y="5" width="13" height="22" rx="3"/><rect x="20" y="5" width="8" height="9" rx="2"/><rect x="20" y="18" width="8" height="9" rx="2"/></svg><strong>Home layout</strong><span>Choose and arrange the widgets on Home.</span></li>
+          <li class="reveal delay-2"><svg viewBox="0 0 32 32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><rect x="5" y="5" width="22" height="22" rx="6"/><path d="M11 20l4-8 3 5 2-3 2 6z" fill="currentColor"/></svg><strong>App icons</strong><span>Alternative icons for your Home Screen.</span></li>
+          <li class="reveal delay-3"><svg viewBox="0 0 32 32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><rect x="3" y="9" width="19" height="15" rx="3"/><path d="m22 14 7-4v13l-7-4z"/></svg><strong>Dashcam Pro</strong><span>Impact detection that saves the clip for you, and longer loops.</span></li>
+          <li class="reveal delay-3"><svg viewBox="0 0 32 32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="25" r="3"/><circle cx="25" cy="7" r="3"/><path d="M10 25h9a4 4 0 0 0 0-8h-6a4 4 0 0 1 0-8h9"/></svg><strong>Trip history</strong><span>Where you went, how far and how long.</span></li>
+        </ul>
+        <div class="prices">
+          <div class="price reveal"><p class="plan">Monthly</p><p class="amount">A$2.99<small>/month</small></p><p>Cancel any time.</p></div>
+          <div class="price best reveal delay-1"><span class="tag">Best value</span><p class="plan">Yearly</p><p class="amount">A$19.99<small>/year</small></p><p>Starts with a 1-week free trial.</p></div>
+          <div class="price reveal delay-2"><p class="plan">Lifetime</p><p class="amount">A$39.99</p><p>Pay once. Pro for good.</p></div>
+        </div>
+        <p class="small center prices-note">Prices in AUD; local prices on the App Store. Subscriptions renew automatically until you cancel them in your Apple Account settings.</p>
+      </div>
+    </section>
+
+    <!-- 7. The mount -->
+    <section class="section light mount-teaser" id="mount" aria-labelledby="mount-title">
+      <div class="wrap mount-grid">
+        <div>
+          <p class="eyebrow reveal">Duo Dash mount</p>
+          <h2 class="headline reveal" id="mount-title">Unfolded.<br>And level.</h2>
+          <p class="lede reveal delay-1">On a normal MagSafe mount, the open Duo hangs off to one side and slowly tips. <strong>The Duo Dash mount has a foot under the open half</strong>, so the dashboard stays level over every bump.</p>
+          <p class="price-line reveal delay-2">A$59 for the first 10, then A$70. <span>Shipping in Australia included.</span></p>
+          <div class="btn-row reveal delay-2">
+            <a class="btn btn-primary" href="/mount/#register">Register your interest</a>
+            <a class="btn btn-ghost" href="/mount/">See how it works <span class="chev" aria-hidden="true">›</span></a>
+          </div>
+          <form class="interest reveal delay-3" action="/api/interest" method="post" data-interest novalidate>
+            <div class="row">
+              <div class="field">
+                <label for="t-email">Email</label>
+                <input id="t-email" name="email" type="email" autocomplete="email" inputmode="email" required placeholder="you@example.com">
+              </div>
+              <div class="field">
+                <label for="t-region">Ships to</label>
+                <select id="t-region" name="region"><option value="AU">Australia</option><option value="OTHER">Somewhere else</option></select>
+              </div>
+            </div>
+            <div class="hp" aria-hidden="true"><label for="t-website">Website</label><input id="t-website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
+            <button class="btn btn-primary" type="submit" data-submit>Keep me posted</button>
+            <p class="form-error" data-error role="alert" hidden></p>
+            <p class="small note">One email when the first batch is ready. No payment now. Unsubscribe any time.</p>
+          </form>
+          <div class="thanks" data-thanks tabindex="-1" hidden>
+            <h3>Thanks, you're on the list.</h3>
+            <p class="small">We'll email you when the first batch is ready. Nothing has been charged.</p>
+          </div>
+        </div>
+        <div class="mount-art">
+          <img data-parallax="-0.12" src="/assets/mount-fixed-front.webp" width="1200" height="920" alt="An unfolded iPhone Duo held level on the Duo Dash mount, showing the Duo Dash dashboard" loading="lazy" decoding="async">
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Open source -->
+    <section class="section" id="open-source" aria-labelledby="oss-title">
+      <div class="wrap">
+        <div class="center">
+          <p class="eyebrow reveal">Open source</p>
+          <h2 class="headline reveal" id="oss-title">Built by a driver.<br>Not a big company.</h2>
+          <p class="lede reveal delay-1">Duo Dash was made for one car and shared in case it helps yours. Every line is on GitHub, so you can read it, build it yourself, or make it better.</p>
+        </div>
+        <div class="oss-card reveal-scale">
+          <svg class="gh" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+          <div>
+            <h3>yashpatilian/duo-dash</h3>
+            <p>Found a bug, or have an idea? <strong>Open an issue</strong> and it goes straight to the person who builds it. Fixes and pull requests are welcome too.</p>
+            <div class="btn-row">
+              <a class="btn btn-primary" href="https://github.com/yashpatilian/duo-dash" rel="noopener">View on GitHub</a>
+              <a class="btn btn-ghost" href="https://github.com/yashpatilian/duo-dash/issues" rel="noopener">Open an issue <span class="chev" aria-hidden="true">›</span></a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. Safety -->
+    <section class="safety" id="safety" aria-labelledby="safety-title">
+      <div class="wrap">
+        <div class="safety-card reveal">
+          <svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M24 5 3 42h42z"/><path d="M24 19v10M24 35v.5"/></svg>
+          <div>
+            <h2 id="safety-title">For passenger use only.</h2>
+            <p>Don't use Duo Dash while driving. Set your route and music before you set off, keep your eyes on the road, and follow the road rules where you drive.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap">
+      <ul class="footer-links">
+        <li><a href="https://github.com/yashpatilian/duo-dash/blob/main/PRIVACY.md" rel="noopener">Privacy</a></li>
+        <li><a href="https://github.com/yashpatilian/duo-dash/issues" rel="noopener">Support</a></li>
+        <li><a href="/mount/">Duo Dash mount</a></li>
+        <li><a href="https://github.com/yashpatilian/duo-dash" rel="noopener">GitHub</a></li>
+      </ul>
+      <p>For passenger use only. Don't use Duo Dash while driving.</p>
+      <p>iPhone is a trademark of Apple Inc. Duo Dash is an independent app, not affiliated with Apple or Spotify. Screens shown are from the app.</p>
+      <p>© 2026 Duo Dash</p>
+    </div>
+  </footer>
+</body>
+</html>

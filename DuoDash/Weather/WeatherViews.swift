@@ -90,8 +90,13 @@ struct DestinationWeatherBadge: View {
 
 /// The CC BY 4.0 credit Open-Meteo requires.
 struct WeatherAttribution: View {
+    @Environment(WeatherModel.self) private var weather
+    var forecast: WeatherForecast?
+
     var body: some View {
-        Text(WeatherModel.attribution)
+        let credit = (forecast ?? weather.current)?.attribution ?? WeatherModel.attribution
+        // An old forecast (offline) says how old it is, next to the credit.
+        Text(forecast == nil ? [credit, weather.staleText].compactMap { $0 }.joined(separator: " · ") : credit)
             .font(.system(size: 11, weight: .medium))
             .foregroundStyle(Theme.textSecondary)
             .lineLimit(1)
@@ -125,12 +130,22 @@ extension View {
 private struct WeatherFollowsLocation: ViewModifier {
     @Environment(WeatherModel.self) private var weather
     @Environment(LocationManager.self) private var location
+    @Environment(\.scenePhase) private var scenePhase
 
     func body(content: Content) -> some View {
-        content.task(id: key) {
+        // Restarts on a ~1 km move and whenever the app comes back to the foreground.
+        content.task(id: "\(key)|\(scenePhase == .active)") {
+            guard scenePhase == .active else { return }
+            var retry: Double = 15
             while !Task.isCancelled {
-                await weather.updateCurrent(at: location.location?.coordinate)
-                try? await Task.sleep(for: .seconds(weather.cacheLifetime + 5))
+                if await weather.updateCurrent(at: location.location?.coordinate) {
+                    retry = 15
+                    try? await Task.sleep(for: .seconds(weather.cacheLifetime + 5))
+                } else {
+                    // Failed: try again soon (15 s, 30 s, 1 min… up to 5 min), not in 15 minutes.
+                    try? await Task.sleep(for: .seconds(retry))
+                    retry = min(retry * 2, 300)
+                }
             }
         }
     }

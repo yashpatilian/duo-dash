@@ -493,16 +493,24 @@ struct SpotifyStepArt: View {
 
 /// The Spotify intro: a free developer app made on a computer gives the Client ID for the phone.
 struct SpotifyIntroArt: View {
+    /// The build ships a client ID: the art shows a one-time sign-in, not a developer app.
+    var bundled = false
+
     var body: some View {
         HStack(spacing: 18) {
             VStack(spacing: 8) {
-                Image(systemName: "laptopcomputer").font(.system(size: 64, weight: .light))
-                Text("Developer app").font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.textSecondary)
+                Image(systemName: bundled ? "person.crop.circle.fill" : "laptopcomputer")
+                    .font(.system(size: 64, weight: .light))
+                    .foregroundStyle(bundled ? mockGreen : Theme.textPrimary)
+                Text(bundled ? "Spotify account" : "Developer app")
+                    .font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.textSecondary)
             }
             VStack(spacing: 6) {
-                Image(systemName: "key.fill").font(.system(size: 22, weight: .bold)).foregroundStyle(mockGreen)
+                Image(systemName: bundled ? "checkmark.seal.fill" : "key.fill")
+                    .font(.system(size: 22, weight: .bold)).foregroundStyle(mockGreen)
                 Image(systemName: "arrow.right").font(.system(size: 22, weight: .bold)).foregroundStyle(Theme.textSecondary)
-                Text("Client ID").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.textSecondary)
+                Text(bundled ? "Sign in once" : "Client ID")
+                    .font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.textSecondary)
             }
             VStack(spacing: 8) {
                 Image(systemName: "iphone").font(.system(size: 64, weight: .light))
@@ -547,123 +555,26 @@ struct GuideQRCard: View {
     }
 }
 
-// MARK: - Duo Dock
+// MARK: - Duo Dash mount
 
-/// The Duo Dock car mount, stylised: an unfolded phone held level across both halves by a
-/// cradle on a ball joint, on a vent clip. Not a drawing of any real phone's bezels.
+/// The Duo Dash mount car mount: a studio render made from the production CAD (cradle, ball socket and
+/// wing-nut collar, satin black plastic). Rendered by `render/render_dock.swift` in the mount project.
 struct DuoDockIllustration: View {
     var body: some View {
         ZStack {
-            // Soft floor glow.
+            // Soft glow behind the product.
             Ellipse()
-                .fill(RadialGradient(colors: [Theme.accent.opacity(0.35), .clear], center: .center, startRadius: 0, endRadius: 170))
-                .frame(width: 360, height: 120)
-                .offset(y: 70)
-
-            // Arm and base (behind the phone).
-            VStack(spacing: 0) {
-                Spacer().frame(height: 150)
-                metal(RoundedRectangle(cornerRadius: 7)).frame(width: 18, height: 48)
-                // Vent clip.
-                ZStack {
-                    metal(RoundedRectangle(cornerRadius: 10, style: .continuous)).frame(width: 96, height: 22)
-                    HStack(spacing: 10) {
-                        ForEach(0..<4, id: \.self) { _ in Capsule().fill(Color.black.opacity(0.35)).frame(width: 12, height: 4) }
-                    }
-                }
-                Spacer(minLength: 0)
-            }
-
-            // Cradle bar across both halves, with clamps over the outer edges.
-            ZStack {
-                metal(Capsule()).frame(width: 300, height: 16)
-                HStack {
-                    clamp
-                    Spacer()
-                    clamp.scaleEffect(x: -1)
-                }
-                .frame(width: 316)
-            }
-            .offset(y: 36)
-
-            // The unfolded phone.
-            UnfoldedPhone()
-                .frame(width: 290, height: 150)
-                .offset(y: -18)
-
-            // Ball joint.
-            ZStack {
-                Circle()
-                    .fill(RadialGradient(colors: [Color(white: 0.85), Color(white: 0.35), Color(white: 0.15)],
-                                         center: UnitPoint(x: 0.35, y: 0.3), startRadius: 1, endRadius: 22))
-                    .frame(width: 34, height: 34)
-                Circle().strokeBorder(Color.black.opacity(0.4), lineWidth: 1).frame(width: 34, height: 34)
-            }
-            .offset(y: 62)
-
-            // "Level" marker: both halves straight.
-            HStack(spacing: 6) {
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.positive)
-                Text("Level").font(.system(size: 13, weight: .bold))
-            }
-            .padding(.horizontal, 10)
-            .frame(height: 26)
-            .background(Theme.surface, in: Capsule())
-            .offset(x: 120, y: -108)
+                .fill(RadialGradient(colors: [Theme.accent.opacity(0.30), .clear], center: .center, startRadius: 0, endRadius: 180))
+                .frame(width: 380, height: 200)
+                .offset(y: 30)
+            Image("DuoDock")
+                .resizable()
+                .scaledToFit()
+                .frame(height: 250)
         }
         .frame(width: 360, height: 260)
-    }
-
-    private var clamp: some View {
-        metal(UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 6, bottomTrailingRadius: 2, topTrailingRadius: 2))
-            .frame(width: 14, height: 40)
-            .offset(y: -10)
-    }
-
-    private func metal<S: Shape>(_ shape: S) -> some View {
-        shape
-            .fill(LinearGradient(colors: [Color(white: 0.55), Color(white: 0.28), Color(white: 0.18)], startPoint: .top, endPoint: .bottom))
-            .overlay { shape.stroke(Color.white.opacity(0.18), lineWidth: 1) }
-    }
-}
-
-/// Two screens side by side with a hinge between them, showing the dashboard.
-private struct UnfoldedPhone: View {
-    var body: some View {
-        HStack(spacing: 3) {
-            half { MiniMap() }
-            half {
-                HStack(spacing: 4) {
-                    VStack(spacing: 4) {
-                        RoundedRectangle(cornerRadius: 6).fill(Theme.surface)
-                            .overlay { Image(systemName: "music.note").font(.system(size: 18, weight: .bold)).foregroundStyle(Color(red: 0.96, green: 0.2, blue: 0.33)) }
-                        RoundedRectangle(cornerRadius: 6).fill(Theme.surface)
-                            .overlay { Image(systemName: "cloud.sun.fill").font(.system(size: 16)).foregroundStyle(.white, .yellow) }
-                    }
-                    VStack(spacing: 4) {
-                        ForEach(0..<4, id: \.self) { i in
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill([Theme.accent, Color(red: 0.96, green: 0.2, blue: 0.33), Theme.positive, Theme.positive][i].gradient)
-                                .frame(width: 18, height: 18)
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.vertical, 3)
-                    .frame(width: 24)
-                    .background(Theme.chrome, in: RoundedRectangle(cornerRadius: 5))
-                }
-            }
-        }
-        .padding(5)
-        .background(Color(white: 0.1), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color(white: 0.32), lineWidth: 1.5) }
-        .shadow(color: .black.opacity(0.6), radius: 14, y: 8)
-    }
-
-    private func half<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        content()
-            .padding(4)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.black, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+        .accessibilityElement()
+        .accessibilityLabel("Duo Dash mount, a black car mount with a round magnetic cradle, a left foot and a right stop")
+        .accessibilityIdentifier("dock.promo.photo")
     }
 }

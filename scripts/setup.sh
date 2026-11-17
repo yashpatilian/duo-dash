@@ -56,8 +56,10 @@ if [ -z "$TEAM" ]; then
 fi
 [[ "$TEAM" =~ ^[A-Z0-9]{10}$ ]] || fail "That doesn't look like a Team ID (10 letters/digits)."
 if [ -z "$BUNDLE" ]; then
-  read -r -p "Bundle ID [com.$(whoami | tr -cd 'a-z0-9').duodash]: " BUNDLE
-  BUNDLE=${BUNDLE:-com.$(whoami | tr -cd 'a-z0-9').duodash}
+  # A random suggestion, not your Mac's user name: the bundle ID is shown in the app.
+  SUGGESTED="com.duodash.u$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 6)"
+  read -r -p "Bundle ID [$SUGGESTED]: " BUNDLE
+  BUNDLE=${BUNDLE:-$SUGGESTED}
 fi
 [[ "$BUNDLE" =~ ^[A-Za-z0-9.-]+\.[A-Za-z0-9.-]+$ ]] || fail "That doesn't look like a bundle ID (e.g. com.you.duodash)."
 

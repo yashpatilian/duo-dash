@@ -58,6 +58,12 @@ final class SpeechModelStore {
     @ObservationIgnored private var whisperTask: Task<Void, Never>?
     @ObservationIgnored private var kokoroTask: Task<Void, Never>?
     @ObservationIgnored private var kokoroDownload: ResumableDownload?
+    /// Bumped on every new download or delete. A task whose generation is stale (the user
+    /// deleted or restarted meanwhile) changes nothing when it finishes.
+    @ObservationIgnored private var whisperGeneration = 0
+    @ObservationIgnored private var kokoroGeneration = 0
+    /// Whisper is being loaded into memory (don't unload it from under the load).
+    @ObservationIgnored private var whisperLoading = false
     @ObservationIgnored private let pathMonitor = NWPathMonitor()
     @ObservationIgnored private var memoryObserver: NSObjectProtocol?
 
@@ -82,7 +88,11 @@ final class SpeechModelStore {
         // Whisper is big; give the memory back if iOS asks. It reloads on the next dictation.
         memoryObserver = NotificationCenter.default.addObserver(
             forName: UIApplication.didReceiveMemoryWarningNotification, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.whisperRuntime.unload() }
+                MainActor.assumeIsolated {
+                    // Unloading mid-load would cancel it and look like a failure; let it finish.
+                    guard let self, !self.whisperLoading else { return }
+                    self.whisperRuntime.unload()
+                }
             }
     }
 
@@ -133,6 +143,8 @@ final class SpeechModelStore {
         settings.whisperState = .downloading(currentFraction(settings.whisperState))
         let base = locations.whisperBase
         let settings = settings
+        whisperGeneration += 1
+        let generation = whisperGeneration
         whisperTask = Task { [weak self] in
             do {
                 _ = try await WhisperKit.download(variant: variant.id, downloadBase: base,
@@ -143,12 +155,12 @@ final class SpeechModelStore {
                         settings.whisperState = .downloading(fraction)
                     }
                 }
-                guard let self else { return }
+                guard let self, generation == self.whisperGeneration else { return }
                 self.whisperTask = nil
                 self.storageRevision += 1
                 self.prepareWhisper()
             } catch {
-                guard let self else { return }
+                guard let self, generation == self.whisperGeneration else { return }
                 self.whisperTask = nil
                 self.storageRevision += 1
                 if Task.isCancelled || error is CancellationError {
@@ -166,15 +178,31 @@ final class SpeechModelStore {
         guard settings.mode == .full else { return }
         let variant = settings.whisperVariantID
         settings.whisperState = .preparing
+        let generation = whisperGeneration
+        whisperLoading = true
         whisperTask = Task { [weak self] in
             guard let self else { return }
+            defer { self.whisperLoading = false }
             do {
                 _ = try await self.whisperRuntime.load(variant: variant, prewarm: true)
+                guard generation == self.whisperGeneration else { return }
                 self.settings.whisperPrepared = true
                 self.settings.whisperState = .ready
+            } catch is CancellationError {
+                // Interrupted, not failed: try again shortly (unless it was deleted meanwhile).
+                guard generation == self.whisperGeneration else { return }
+                self.whisperTask = nil
+                Task { [weak self] in
+                    try? await Task.sleep(for: .seconds(5))
+                    guard let self, generation == self.whisperGeneration, self.whisperTask == nil else { return }
+                    self.prepareWhisper()
+                }
+                return
             } catch {
+                guard generation == self.whisperGeneration else { return }
                 self.settings.whisperState = .failed("Whisper couldn't load on this device.")
             }
+            guard generation == self.whisperGeneration else { return }
             self.whisperTask = nil
             self.storageRevision += 1
         }
@@ -185,6 +213,7 @@ final class SpeechModelStore {
     }
 
     func deleteWhisper() {
+        whisperGeneration += 1
         whisperTask?.cancel()
         whisperTask = nil
         whisperRuntime.unload()
@@ -206,6 +235,8 @@ final class SpeechModelStore {
         let settings = settings
         let download = ResumableDownload()
         kokoroDownload = download
+        kokoroGeneration += 1
+        let generation = kokoroGeneration
         kokoroTask = Task { [weak self] in
             do {
                 let file = try await download.run(url: NaturalVoice.modelURL, resumeData: resume) { fraction in
@@ -214,25 +245,33 @@ final class SpeechModelStore {
                         settings.kokoroState = .downloading(fraction)
                     }
                 }
+                guard let current = self, generation == current.kokoroGeneration else {
+                    try? FileManager.default.removeItem(at: file)
+                    return
+                }
                 try? FileManager.default.removeItem(at: locations.kokoroResumeData)
-                self?.settings.kokoroState = .preparing
+                current.settings.kokoroState = .preparing
                 // Unpack next to the final folder, then swap in, so a half-unpacked model is never used.
                 let staging = locations.root.appending(component: "kokoro-staging")
                 try await Task.detached(priority: .utility) {
                     try? FileManager.default.removeItem(at: staging)
                     try TarGzExtractor.extract(file, to: staging)
                     try? FileManager.default.removeItem(at: file)
-                    try? FileManager.default.removeItem(at: locations.kokoroDirectory)
-                    try FileManager.default.moveItem(at: staging, to: locations.kokoroDirectory)
                 }.value
-                guard let self else { return }
+                // Deleted while unpacking: throw the unpacked copy away instead of installing it.
+                guard let self, generation == self.kokoroGeneration else {
+                    try? FileManager.default.removeItem(at: staging)
+                    return
+                }
+                try? FileManager.default.removeItem(at: locations.kokoroDirectory)
+                try FileManager.default.moveItem(at: staging, to: locations.kokoroDirectory)
                 self.kokoroTask = nil
                 self.kokoroDownload = nil
                 self.storageRevision += 1
                 self.settings.kokoroState = self.kokoroRuntime.isInstalled ? .ready : .failed("The voice download was incomplete.")
                 if self.settings.kokoroState == .ready { self.kokoroRuntime.warmUp() }
             } catch let failure as ResumableDownload.Stopped {
-                guard let self else { return }
+                guard let self, generation == self.kokoroGeneration else { return }
                 if let data = failure.resumeData {
                     try? data.write(to: locations.kokoroResumeData)
                     UserDefaults.standard.set(self.currentFraction(self.settings.kokoroState), forKey: Self.kokoroPausedKey)
@@ -243,7 +282,7 @@ final class SpeechModelStore {
                     ? .paused(self.currentFraction(self.settings.kokoroState))
                     : .failed("Download failed. Check the connection and try again.")
             } catch {
-                guard let self else { return }
+                guard let self, generation == self.kokoroGeneration else { return }
                 self.kokoroTask = nil
                 self.kokoroDownload = nil
                 self.settings.kokoroState = .failed("Couldn't unpack the voice model.")
@@ -256,6 +295,7 @@ final class SpeechModelStore {
     }
 
     func deleteKokoro() {
+        kokoroGeneration += 1
         kokoroDownload?.cancel()
         kokoroTask = nil
         kokoroDownload = nil

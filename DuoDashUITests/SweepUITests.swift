@@ -11,7 +11,7 @@ final class SweepUITests: XCTestCase {
     /// a phone, an iPad. The canvas is fitted onto whatever simulator runs the test.
     private let sizes = ["466x678", "678x466", "951x669", "669x951", "475x669", "390x844", "1032x1376"]
     private let apps = ["home", "maps", "music", "spotify", "phone", "messages", "calendar", "weather",
-                        "car", "homekit", "dashcam", "settings"]
+                        "car", "homekit", "dashcam", "youtube", "settings"]
 
     override func setUpWithError() throws {
         continueAfterFailure = true
@@ -172,7 +172,7 @@ final class SweepUITests: XCTestCase {
             if onboardingVisible() {
                 if app.buttons["onboarding.skip"].exists { app.buttons["onboarding.skip"].tap() }
                 let notNow = app.buttons["dock.promo.notNow"]
-                XCTAssertTrue(notNow.waitForExistence(timeout: 5), "Duo Dock card missing at the end, \(canvas)")
+                XCTAssertTrue(notNow.waitForExistence(timeout: 5), "Duo Dash mount card missing at the end, \(canvas)")
                 notNow.tap()
             }
             XCTAssertTrue(app.buttons["dock.home"].waitForExistence(timeout: 8), "dashboard didn't appear after the tour, \(canvas)")

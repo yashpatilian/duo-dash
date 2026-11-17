@@ -120,9 +120,9 @@ final class PersistenceTests: XCTestCase {
     func testFavouritesRoundTrip() {
         let d = freshDefaults()
         let store = FavouritesStore(defaults: d)
-        store.setLocation("work", coordinate: CLLocationCoordinate2D(latitude: -37.9, longitude: 145.1))
+        store.setLocation("work", coordinate: CLLocationCoordinate2D(latitude: 37.2, longitude: -121.9))
         let reloaded = FavouritesStore(defaults: d)
-        XCTAssertEqual(reloaded.place(id: "work")?.location?.latitude ?? 0, -37.9, accuracy: 1e-9)
+        XCTAssertEqual(reloaded.place(id: "work")?.location?.latitude ?? 0, 37.2, accuracy: 1e-9)
         reloaded.clearLocation("work")
         XCTAssertNil(FavouritesStore(defaults: d).place(id: "work")?.location)
     }

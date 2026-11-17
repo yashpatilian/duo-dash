@@ -7,12 +7,15 @@ enum SpotifyStatus: Equatable {
     /// No client ID in `Config/Secrets.xcconfig`.
     case notConfigured
     case notInstalled
-    /// Never connected (or the saved token ran out): needs a trip through Spotify.
+    /// Not connected and not trying: shows Connect (sign in once, or wake Spotify).
     case notConnected
     case connecting
     case connected
     /// Was connected, or tried and failed: shows Reconnect with the reason.
     case disconnected(String)
+    /// Spotify refused this account for both the sign-in and App Remote (e.g. not on the
+    /// developer app's allow-list). Shows "Open Spotify"; no automatic retries.
+    case limited
 
     var isConnected: Bool { self == .connected }
 }
@@ -26,10 +29,24 @@ struct SpotifyShelf: Identifiable, Equatable {
 
 /// Spotify state for the UI, and the `.spotify` source for NowPlayingModel.
 ///
-/// Connect flow: with a valid saved token, connect straight away (Spotify must
-/// be running). Otherwise, or when that fails after a tap, authorise: Spotify
-/// opens briefly, starts playing (App Remote needs it to) and returns through
-/// `duodash://spotify-callback` with a token, which is saved in the Keychain.
+/// Connect flow (sign in once, then it just works):
+/// 1. No saved sign-in: the user signs in once (Authorization Code with PKCE). The access
+///    and refresh tokens go in the Keychain.
+/// 2. Before every connect, an access token that has expired or is within 5 minutes of it is
+///    renewed silently with the refresh token. Only a refused refresh token (`invalid_grant`)
+///    asks the user to sign in again.
+/// 3. App Remote needs the Spotify app running. When it isn't and the user tapped Connect,
+///    Spotify opens for a moment (`authorizeAndPlayURI`, no questions after the first time),
+///    starts playing and returns through `duodash://spotify-callback`. Right after a sign-in
+///    this happens straight away.
+///
+/// App Remote only (`SpotifySignInMode.appRemoteOnly`): the TestFlight and App Store builds,
+/// and any account whose PKCE sign-in Spotify refuses (development-mode allow-list). No
+/// accounts.spotify.com sign-in: the token comes from the Spotify app when it opens for a
+/// moment, and when it runs out Connect opens Spotify again. If the Spotify app refuses the
+/// account too, the screen shows `.limited` ("Open Spotify") instead of retrying.
+/// Everything the Spotify screen shows (player, artwork, the home-feed shelves, playlist and
+/// album pages) comes over App Remote in both modes; Duo Dash makes no Web API calls.
 @MainActor
 @Observable
 final class SpotifyModel: NowPlayingController, PlayerSource {
@@ -45,20 +62,37 @@ final class SpotifyModel: NowPlayingController, PlayerSource {
     private(set) var childErrors: [String: String] = [:]
     private(set) var pendingItemID: String?
     var errorMessage: String?
+    /// A refresh token is saved: Connect no longer needs a sign-in.
+    private(set) var isSignedIn = false
+    /// How the token is obtained right now (see the type's notes).
+    private(set) var mode: SpotifySignInMode = .signInOnce
+    /// The Client ID of the user's own developer app (Settings → Spotify), if set.
+    private(set) var ownClientID: String?
 
     let isDemo: Bool
+    /// What this build was set up for (Info.plist `SpotifySignInMode`).
+    let buildMode: SpotifySignInMode
+    @ObservationIgnored private let access: SpotifyAccessSettings
 
     @ObservationIgnored private let backend: SpotifyBackend
     @ObservationIgnored private let tokens: SpotifyTokenStore
+    @ObservationIgnored private let auth: SpotifyAuthorizing
+    /// The sign-in or silent renewal in progress.
+    @ObservationIgnored private var authTask: Task<Void, Never>?
     @ObservationIgnored private let nowPlaying: NowPlayingModel
     @ObservationIgnored private var playerState: SpotifyPlayerState?
     @ObservationIgnored private var stateReceivedAt = Date.now
     @ObservationIgnored private var images: [String: UIImage] = [:]
     /// The current connect attempt was a tap (so it may open Spotify), and
-    /// whether it has already been through Spotify's authorisation.
+    /// whether it has already been through Spotify to wake it.
     @ObservationIgnored private var userInitiated = false
-    @ObservationIgnored private var hasAuthorized = false
+    @ObservationIgnored private var hasWoken = false
+    /// Signed out and not tapped Connect since: a late App Remote connection is dropped.
+    @ObservationIgnored private var hasSignedOut = false
     @ObservationIgnored private(set) var isAwaitingRedirect = false
+    /// When this app last sent the user to Spotify to authorise. A redirect is only accepted
+    /// within 10 minutes of that, so another app or a web page can't plant a token.
+    @ObservationIgnored private var authorizationStartedAt: Date?
     @ObservationIgnored private var timeoutTask: Task<Void, Never>?
     @ObservationIgnored private var playTask: Task<Void, Never>?
     /// Injectable clock for token-expiry tests.
@@ -77,22 +111,31 @@ final class SpotifyModel: NowPlayingController, PlayerSource {
         #endif
     }
 
+    /// `auth` defaults to the demo backend's stand-in, or the PKCE sign-in with this build's client ID.
+    /// `access` (own Client ID, fallbacks) defaults to UserDefaults, or memory for the demo.
+    /// `buildMode` defaults to this build's Info.plist setting.
     init(nowPlaying: NowPlayingModel, backend: SpotifyBackend? = nil, tokens: SpotifyTokenStore? = nil,
-         observesLifecycle: Bool = true) {
+         auth: SpotifyAuthorizing? = nil, access: SpotifyAccessSettings? = nil,
+         buildMode: SpotifySignInMode? = nil, observesLifecycle: Bool = true) {
         let arguments = ProcessInfo.processInfo.arguments
-        let backend = backend ?? (Self.usesDemo
-            ? DemoSpotifyBackend(installed: !arguments.contains("-DemoSpotifyNotInstalled"))
-            : SpotifyAppRemoteBackend())
+        let backend = backend ?? (Self.usesDemo ? Self.demoBackend(arguments) : SpotifyAppRemoteBackend())
         self.backend = backend
         self.tokens = tokens ?? (backend.isDemo ? MemorySpotifyTokenStore() : KeychainSpotifyTokenStore())
+        let access = access ?? SpotifyAccessSettings(defaults: backend.isDemo ? nil : .standard)
+        self.access = access
+        let clientID = access.ownClientID ?? SpotifyConfig.clientID()
+        self.auth = auth ?? (backend as? SpotifyAuthorizing) ?? SpotifyPKCEAuthorizer(clientID: clientID ?? "")
+        self.buildMode = buildMode ?? .thisBuild
         self.nowPlaying = nowPlaying
         self.isDemo = backend.isDemo
+        ownClientID = access.ownClientID
+        if access.ownClientID != nil { backend.setClientID(clientID) }
+        updateMode()
         nowPlaying.register(.spotify, controller: self)
         backend.onEvent = { [weak self] event in self?.handle(event) }
+        isSignedIn = self.tokens.load()?.refreshToken != nil
         status = baseStatus()
-        if status == .notConnected, let token = validToken {
-            beginConnecting(token: token, userInitiated: false)
-        }
+        if status == .notConnected { proceed(userInitiated: false) }
         if observesLifecycle {
             NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification,
                                                    object: nil, queue: .main) { [weak self] _ in
@@ -100,6 +143,23 @@ final class SpotifyModel: NowPlayingController, PlayerSource {
             }
         }
     }
+
+    /// The Simulator's stand-in. `-DemoSpotifyNotAllowlisted`: the sign-in is refused (App
+    /// Remote still works); `-DemoSpotifyRefused`: App Remote refuses the account too.
+    private static func demoBackend(_ arguments: [String]) -> DemoSpotifyBackend {
+        let demo = DemoSpotifyBackend(installed: !arguments.contains("-DemoSpotifyNotInstalled"))
+        demo.signInNotAllowed = arguments.contains("-DemoSpotifyNotAllowlisted") || arguments.contains("-DemoSpotifyRefused")
+        demo.appRemoteRefused = arguments.contains("-DemoSpotifyRefused")
+        return demo
+    }
+
+    private func updateMode() {
+        mode = SpotifySignInMode.choose(build: buildMode, hasOwnClientID: access.ownClientID != nil,
+                                        fellBackToAppRemote: access.fellBackToAppRemote)
+    }
+
+    /// Opens the Spotify app (the "Open Spotify" button when control is limited).
+    static let spotifyAppURL = URL(string: "spotify:")!
 
     var appStoreURL: URL { backend.appStoreURL }
     var track: TrackInfo? { snapshot.track }
@@ -110,15 +170,16 @@ final class SpotifyModel: NowPlayingController, PlayerSource {
         return min(state.position + max(0, running), state.duration > 0 ? state.duration : .infinity)
     }
 
-    private var validToken: String? {
-        guard let token = tokens.load(), token.isValid(at: now()) else { return nil }
-        return token.accessToken
+    private func saveToken(_ token: SpotifyToken) {
+        tokens.save(token)
+        isSignedIn = token.refreshToken != nil
     }
 
     /// Not configured / not installed / not connected, before any connection.
     private func baseStatus() -> SpotifyStatus {
         if !backend.isConfigured { return .notConfigured }
         if !backend.isSpotifyInstalled() { return .notInstalled }
+        if access.isLimited { return .limited }
         return .notConnected
     }
 
@@ -133,11 +194,178 @@ final class SpotifyModel: NowPlayingController, PlayerSource {
         status = baseStatus()
         guard status == .notConnected else { return }
         errorMessage = nil
-        hasAuthorized = false
-        if let token = validToken {
-            beginConnecting(token: token, userInitiated: true)
-        } else {
-            authorize()
+        hasWoken = false
+        hasSignedOut = false
+        proceed(userInitiated: true)
+    }
+
+    /// "Try Again" on the limited screen (e.g. after being added to the allow-list).
+    func retryAfterLimited() {
+        access.isLimited = false
+        status = baseStatus()
+        connect()
+    }
+
+    /// Settings → Spotify → "Use my own Spotify developer app": switch to its Client ID (nil:
+    /// back to this build's). Signs out, since tokens belong to one Client ID, and forgets the
+    /// fallbacks taken with the old one.
+    func useOwnClientID(_ clientID: String?) {
+        signOut()
+        access.ownClientID = clientID
+        access.fellBackToAppRemote = false
+        access.isLimited = false
+        ownClientID = clientID
+        let active = clientID ?? SpotifyConfig.clientID()
+        backend.setClientID(active)
+        auth.setClientID(active)
+        updateMode()
+        status = baseStatus()
+    }
+
+    /// The account isn't allowed to sign in (allow-list): carry on with App Remote only.
+    private func fallBackToAppRemote() {
+        access.fellBackToAppRemote = true
+        updateMode()
+        tokens.clear()
+        isSignedIn = false
+    }
+
+    /// Spotify refused the account for App Remote too: stop, and offer to open Spotify.
+    private func enterLimited() {
+        access.isLimited = true
+        tokens.clear()
+        isSignedIn = false
+        userInitiated = false
+        isAwaitingRedirect = false
+        timeoutTask?.cancel()
+        status = .limited
+    }
+
+    /// Sign out: forget the tokens (Keychain included), drop the connection and the
+    /// library. The next Connect signs in again.
+    func signOut() {
+        authTask?.cancel()
+        authTask = nil
+        timeoutTask?.cancel()
+        isAwaitingRedirect = false
+        authorizationStartedAt = nil
+        userInitiated = false
+        hasSignedOut = true
+        tokens.clear()
+        isSignedIn = false
+        status = baseStatus()
+        backend.disconnect()
+        clearPlayer()
+        recents = []
+        shelves = []
+        children = [:]
+        childErrors = [:]
+        hasLoadedLibrary = false
+        libraryError = nil
+        errorMessage = nil
+    }
+
+    /// Connects with the saved sign-in: as it is, renewed first, or (only after a tap)
+    /// by signing in. Without a tap and without a usable sign-in it does nothing.
+    private func proceed(userInitiated: Bool) {
+        if mode == .appRemoteOnly {
+            // No refresh token to renew with: use the token while it lasts, otherwise (only
+            // after a tap) get a new one from the Spotify app.
+            if let token = tokens.load(), token.isValid(at: now()) {
+                beginConnecting(token: token.accessToken, userInitiated: userInitiated)
+            } else if userInitiated {
+                wake()
+            }
+            return
+        }
+        switch SpotifyTokenPlan.plan(for: tokens.load(), at: now()) {
+        case .use(let token):
+            beginConnecting(token: token, userInitiated: userInitiated)
+        case .refresh(let refreshToken):
+            renewThenConnect(refreshToken, userInitiated: userInitiated)
+        case .signIn:
+            if userInitiated { signIn() }
+        }
+    }
+
+    /// Renews the access token silently, then connects. A refused refresh token is
+    /// forgotten: after a tap that means signing in again; otherwise Connect shows.
+    private func renewThenConnect(_ refreshToken: String, userInitiated: Bool) {
+        self.userInitiated = userInitiated
+        status = .connecting
+        timeoutTask?.cancel()
+        authTask?.cancel()
+        let auth = auth
+        authTask = Task { [weak self] in
+            do {
+                let token = try await auth.refresh(refreshToken)
+                guard let self, !Task.isCancelled else { return }
+                self.saveToken(token)
+                self.beginConnecting(token: token.accessToken, userInitiated: userInitiated)
+            } catch {
+                guard let self, !Task.isCancelled else { return }
+                self.renewalFailed(error, userInitiated: userInitiated)
+            }
+        }
+    }
+
+    private func renewalFailed(_ error: Error, userInitiated: Bool) {
+        if case SpotifyAuthError.notAllowed = error {
+            fallBackToAppRemote()
+            if userInitiated { wake() } else { status = baseStatus() }
+            return
+        }
+        if case SpotifyAuthError.invalidGrant = error {
+            tokens.clear()
+            isSignedIn = false
+            if userInitiated {
+                signIn()
+            } else {
+                status = .disconnected(SpotifyAuthError.invalidGrant.errorDescription ?? "Sign in to Spotify again.")
+            }
+            return
+        }
+        // Offline or Spotify having a moment: an access token with a minute left still works.
+        if let token = tokens.load(), token.isValid(at: now()) {
+            beginConnecting(token: token.accessToken, userInitiated: userInitiated)
+            return
+        }
+        self.userInitiated = false
+        let reason = (error as? LocalizedError)?.errorDescription ?? "Couldn't reach Spotify."
+        status = .disconnected(reason)
+    }
+
+    /// The one-time sign-in (PKCE). Then Spotify is woken so App Remote can connect.
+    private func signIn() {
+        userInitiated = true
+        status = .connecting
+        timeoutTask?.cancel()
+        authTask?.cancel()
+        let auth = auth
+        authTask = Task { [weak self] in
+            do {
+                let token = try await auth.signIn()
+                guard let self, !Task.isCancelled else { return }
+                self.saveToken(token)
+                // App Remote needs Spotify running; the user is already setting up, so open
+                // it now (it also starts playback) rather than trying and failing first.
+                self.wake()
+            } catch {
+                guard let self, !Task.isCancelled else { return }
+                if case SpotifyAuthError.notAllowed = error {
+                    // Not on the allow-list: App Remote talks to the Spotify app instead,
+                    // which may still let this account in.
+                    self.fallBackToAppRemote()
+                    self.wake()
+                    return
+                }
+                self.userInitiated = false
+                if case SpotifyAuthError.cancelled = error {
+                    self.status = self.baseStatus()
+                } else {
+                    self.status = .disconnected((error as? LocalizedError)?.errorDescription ?? "Couldn't sign in to Spotify.")
+                }
+            }
         }
     }
 
@@ -148,12 +376,14 @@ final class SpotifyModel: NowPlayingController, PlayerSource {
         backend.connect(accessToken: token)
     }
 
-    /// Opens Spotify to get a fresh token. Spotify comes back via `handleOpenURL`.
-    private func authorize() {
-        hasAuthorized = true
+    /// Opens Spotify for a moment so it's running (App Remote can't start it). Spotify comes
+    /// back via `handleOpenURL` with an access token.
+    private func wake() {
+        hasWoken = true
         userInitiated = true
         status = .connecting
         isAwaitingRedirect = true
+        authorizationStartedAt = now()
         timeoutTask?.cancel()
         // Blank: Spotify resumes whatever was playing last.
         backend.authorize(playURI: "") { [weak self] opened in
@@ -169,14 +399,21 @@ final class SpotifyModel: NowPlayingController, PlayerSource {
     @discardableResult
     func handleOpenURL(_ url: URL) -> Bool {
         guard let result = backend.authorizationResult(from: url) else { return false }
+        // Not something we asked for: swallow it without changing anything.
+        guard let started = authorizationStartedAt, now().timeIntervalSince(started) < 600 else { return true }
+        authorizationStartedAt = nil
         isAwaitingRedirect = false
         timeoutTask?.cancel()
         switch result {
         case .token(let token, let expiresIn):
-            tokens.save(SpotifyToken(accessToken: token, expiresAt: now().addingTimeInterval(expiresIn)))
+            // A fresh access token from Spotify; the sign-in's refresh token carries on.
+            saveToken(SpotifyToken(accessToken: token, expiresAt: now().addingTimeInterval(expiresIn),
+                                   refreshToken: tokens.load()?.refreshToken))
             beginConnecting(token: token, userInitiated: true)
         case .failed(let message):
             status = .disconnected(message)
+        case .refused:
+            enterLimited()
         }
         return true
     }
@@ -203,7 +440,7 @@ final class SpotifyModel: NowPlayingController, PlayerSource {
         }
         switch status {
         case .notConnected, .disconnected:
-            if let token = validToken { beginConnecting(token: token, userInitiated: false) }
+            proceed(userInitiated: false)
         default:
             break
         }
@@ -225,15 +462,23 @@ final class SpotifyModel: NowPlayingController, PlayerSource {
         switch event {
         case .connected:
             timeoutTask?.cancel()
+            // Signed out while App Remote was still connecting: don't stay connected.
+            guard !hasSignedOut else {
+                backend.disconnect()
+                return
+            }
             status = .connected
             userInitiated = false
             if !hasLoadedLibrary { Task { await loadLibrary() } }
         case .connectionFailed(let reason):
             timeoutTask?.cancel()
-            if userInitiated && !hasAuthorized {
-                // Spotify isn't running, or the saved token was refused: go
-                // through Spotify, which also starts it.
-                authorize()
+            if hasWoken && SpotifyRefusal.isNotAllowed(reason) {
+                // Spotify is running and still says no to this account.
+                enterLimited()
+            } else if userInitiated && !hasWoken {
+                // Spotify isn't running, or the token was refused: go through
+                // Spotify, which starts it and hands back a fresh token.
+                wake()
             } else {
                 userInitiated = false
                 status = .disconnected(Self.describe(reason, fallback: "Couldn't connect to Spotify."))

@@ -43,10 +43,10 @@ private final class FakeRoute: MKRoute {
 
 @MainActor
 final class MultiStopNavigationTests: XCTestCase {
-    private let start = CLLocationCoordinate2D(latitude: -37.8000, longitude: 144.9600)
-    private let stopA = CLLocationCoordinate2D(latitude: -37.7900, longitude: 144.9600)
-    private let stopB = CLLocationCoordinate2D(latitude: -37.7800, longitude: 144.9600)
-    private let end = CLLocationCoordinate2D(latitude: -37.7700, longitude: 144.9600)
+    private let start = CLLocationCoordinate2D(latitude: 37.3000, longitude: -122.0400)
+    private let stopA = CLLocationCoordinate2D(latitude: 37.3100, longitude: -122.0400)
+    private let stopB = CLLocationCoordinate2D(latitude: 37.3200, longitude: -122.0400)
+    private let end = CLLocationCoordinate2D(latitude: 37.3300, longitude: -122.0400)
 
     private var defaults: UserDefaults!
     private var requested: [(source: CLLocationCoordinate2D?, destination: String)] = []
@@ -155,7 +155,7 @@ final class MultiStopNavigationTests: XCTestCase {
         let (model, location) = makeModel()
         model.go(to: item("End", end))
         await waitUntil { model.state == .navigating }
-        drive(location, from: start, to: CLLocationCoordinate2D(latitude: -37.7990, longitude: 144.9600))
+        drive(location, from: start, to: CLLocationCoordinate2D(latitude: 37.3010, longitude: -122.0400))
 
         model.addStop(item("Servo", stopA))
         await waitUntil { model.legs.count == 2 && !model.isRerouting }
@@ -180,7 +180,7 @@ final class MultiStopNavigationTests: XCTestCase {
         requested = []
         // Three good fixes well away from the leg.
         for _ in 0..<3 {
-            location.onUpdate?(CLLocation(coordinate: .init(latitude: -37.7950, longitude: 144.9700), altitude: 0,
+            location.onUpdate?(CLLocation(coordinate: .init(latitude: 37.3050, longitude: -122.0300), altitude: 0,
                                           horizontalAccuracy: 10, verticalAccuracy: 10, course: 0, speed: 10, timestamp: Date()))
         }
         await waitUntil { !self.requested.isEmpty && !model.isRerouting }
@@ -203,7 +203,7 @@ final class MultiStopNavigationTests: XCTestCase {
 
     func testOldSingleDestinationDataStillResumes() async throws {
         // Exactly what the app saved before multi-stop.
-        let old = try JSONEncoder().encode(SavedPlace(name: "Central Station", latitude: -37.818, longitude: 144.967))
+        let old = try JSONEncoder().encode(SavedPlace(name: "Central Station", latitude: 37.282, longitude: -122.033))
         defaults.set(old, forKey: NavigationModel.activeKey)
         let (model, _) = makeModel()
         XCTAssertEqual(model.resumable?.name, "Central Station")

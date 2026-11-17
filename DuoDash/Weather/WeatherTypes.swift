@@ -70,7 +70,7 @@ enum TemperatureUnit: String, Sendable, CaseIterable {
 }
 
 /// One hour of forecast. Temperatures are always stored in Celsius.
-struct HourlyForecast: Hashable, Sendable {
+struct HourlyForecast: Hashable, Sendable, Codable {
     var time: Date
     var temperatureC: Double
     var code: Int
@@ -81,7 +81,7 @@ struct HourlyForecast: Hashable, Sendable {
 }
 
 /// One day of the 10-day forecast. Temperatures in Celsius.
-struct DailyForecast: Hashable, Sendable {
+struct DailyForecast: Hashable, Sendable, Codable {
     var date: Date
     var code: Int
     var highC: Double
@@ -95,7 +95,7 @@ struct DailyForecast: Hashable, Sendable {
 }
 
 /// The detail tiles (feels like, humidity, wind, UV…), all optional: the service may omit any.
-struct WeatherDetails: Hashable, Sendable {
+struct WeatherDetails: Hashable, Sendable, Codable {
     var apparentC: Double?
     var humidity: Int?
     var dewPointC: Double?
@@ -109,7 +109,7 @@ struct WeatherDetails: Hashable, Sendable {
 }
 
 /// A forecast for one place, as fetched.
-struct WeatherForecast: Hashable, Sendable {
+struct WeatherForecast: Hashable, Sendable, Codable {
     var location: GeoPoint
     var fetchedAt: Date
     var temperatureC: Double
@@ -121,6 +121,8 @@ struct WeatherForecast: Hashable, Sendable {
     /// Today first, up to 10 days.
     var daily: [DailyForecast] = []
     var details = WeatherDetails()
+    /// The credit line for the service this came from (CC BY 4.0). nil means Open-Meteo.
+    var attribution: String?
 
     var condition: WeatherCondition { WeatherCondition(code: code, isDay: isDay) }
 

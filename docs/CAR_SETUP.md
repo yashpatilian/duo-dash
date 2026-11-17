@@ -1,8 +1,7 @@
 # Car setup: what to buy and how to test it
 
 This guide covers the hardware for Duo Dash's car features and how to test each feature in
-the car. It's written for an Australian buyer (Amazon AU and Jaycar), and the steps work in
-any car built from about 2001 onwards.
+the car. The steps work in most cars built from about 2001 onwards (1996 onwards in the US).
 
 | Feature | Hardware needed |
 |---|---|
@@ -21,18 +20,18 @@ connects to the adapter directly.
 
 | Option | Price (approx.) | Notes |
 |---|---|---|
-| Generic "ELM327 Dual‑Mode 5.1" mini (e.g. Yizene on Amazon AU) | A$12 | Worth trying first. Some ultra‑cheap clones handle older cars' **K‑line** protocol badly; test it the day it arrives (below) and return it if the car doesn't answer. |
-| **Vgate iCar Pro Bluetooth 4.0 (BLE)**, Amazon AU | A$44–60 | Well‑known, reliable on K‑line cars. The safe choice. |
-| **Jaycar PP2145** OBD‑II Engine Code Reader with Bluetooth | A$109 | ELM327, Bluetooth 4.0, works with iPhone. Buy it in store today if you can't wait. |
+| Generic "ELM327 Dual‑Mode" mini adapter | US$8–15 | Worth trying first. Some ultra‑cheap clones handle older cars' **K‑line** protocol badly; test it the day it arrives (below) and return it if the car doesn't answer. |
+| **Vgate iCar Pro Bluetooth 4.0 (BLE)** | US$30–40 | Well‑known and reliable, including on older K‑line cars. The safe choice. |
+| **OBDLink CX** | US$80 | Premium BLE adapter, fast and well supported. |
 
-**Older cars, e.g. a 7th‑gen Honda Accord (2003–2008):** these use the older K‑line protocol
-(ISO 9141‑2 / KWP2000). Owners report that a generic ELM327 reaches the **engine computer**
+**Older cars (roughly 2001–2008 outside the US):** many use the older K‑line protocol
+(ISO 9141‑2 / KWP2000). A generic ELM327 usually reaches the **engine computer**
 (RPM, speed, temperatures, fault codes) but not the body or ABS modules. Battery voltage
 always works because the adapter measures it itself.
 
 ### 2. Mount (dashcam and everyday use)
 - Get a car mount that clamps a **small tablet or foldable**: the unfolded iPhone Duo is
-  about 16 × 11.5 cm, so look for a clamp range of at least 16.5 cm. Phone‑only mounts are
+  about 16 × 11.5 cm (6.3 × 4.5 in), so look for a clamp range of at least 16.5 cm. Phone‑only mounts are
   too small.
 - For the dashcam, the clamp **must not cover the camera bump** on the back of the left
   half. When unfolded on the dash, those rear cameras face the road.
@@ -46,8 +45,9 @@ always works because the adapter measures it itself.
   plugged in on long drives.
 
 ## Fitting the OBD‑II adapter
-1. Find the port: on a 7th‑gen Accord it's under the dashboard on the driver's side,
-   near your right knee (a 16‑pin trapezoid socket).
+1. Find the port: almost always under the dashboard on the driver's side, near your knee
+   (a 16‑pin trapezoid socket). Your car's manual or a quick search for your model shows
+   exactly where.
 2. Plug the adapter in. Its light comes on.
 3. Turn the ignition **on**. Starting the engine is better.
 
@@ -58,7 +58,7 @@ always works because the adapter measures it itself.
    temperature, the adapter works with your car and Duo Dash will read the same data.
 4. If it connects to the adapter but says "No response from ECU" or "Unable to connect",
    the adapter can't talk to your car (common with the cheapest clones on K‑line cars).
-   Return it and get the Vgate iCar Pro BLE or the Jaycar PP2145.
+   Return it and get the Vgate iCar Pro BLE or an OBDLink CX.
 
 **Then in Duo Dash:**
 1. Open the **Car** app in the dock and allow Bluetooth.
@@ -121,7 +121,6 @@ xcrun devicectl device process launch --device <your-device-id> --terminate-exis
 
 ## Safety and the law
 - Use a commercially made mount that holds the phone firmly.
-- Set things up before you drive. In Victoria, for example, full‑licence drivers may only
-  touch a mounted phone briefly to operate audio, calls or navigation. Learner and P1
-  drivers may not use one at all.
+- Set things up before you drive. Road rules on touching a mounted phone differ by country
+  and state, and are often stricter for learner and provisional drivers: check yours.
 - A dashcam must not block your view of the road.

@@ -4,28 +4,6 @@
 <dict>
 	<key>CFBundleDisplayName</key>
 	<string>$(DUODASH_DISPLAY_NAME)</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>audio</string>
-		<string>location</string>
-		<string>bluetooth-central</string>
-	</array>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Duo Dash uses your location to show you on the map and give turn-by-turn directions.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Duo Dash keeps following your route when the screen is locked or another app is in front.</string>
-	<key>NSAppleMusicUsageDescription</key>
-	<string>Duo Dash plays and controls your Apple Music library from the dashboard.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Duo Dash listens when you tap a microphone button, so you can search, message and ask the assistant by voice.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Duo Dash turns what you say into text for searches, messages and the driving assistant.</string>
-	<key>NSContactsUsageDescription</key>
-	<string>Duo Dash shows your favourite contacts so you can call or message them with one tap.</string>
-	<key>SpotifyClientID</key>
-	<string>$(SPOTIFY_CLIENT_ID)</string>
-	<key>SpotifyRedirectURI</key>
-	<string>duodash://spotify-callback</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -37,21 +15,83 @@
 			</array>
 		</dict>
 	</array>
+	<key>DuoDashEdition</key>
+	<string>$(DUODASH_EDITION)</string>
+	<key>DuoDashHomeKit</key>
+	<string>$(DUODASH_HOMEKIT)</string>
+	<key>DuoDashNotifyURL</key>
+	<string>$(DUODASH_NOTIFY_URL)</string>
+	<key>DuoDashPush</key>
+	<string>$(DUODASH_PUSH)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>spotify</string>
 		<string>facetime-audio</string>
+		<string>comgooglemaps</string>
+		<string>waze</string>
+		<string>youtube</string>
+		<string>youtubemusic</string>
+		<string>podcasts</string>
+		<string>audible</string>
+		<string>whatsapp</string>
+		<string>tg</string>
+		<string>fb-messenger</string>
+		<string>uber</string>
+		<string>pktc</string>
+		<string>overcast</string>
+		<string>amznmp3</string>
+		<string>deezer</string>
+		<string>tidal</string>
+		<string>plexamp</string>
 	</array>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>Duo Dash plays and controls your Apple Music library from the dashboard.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Duo Dash connects to your Bluetooth OBD-II adapter to show live engine data, battery voltage and check-engine codes.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Duo Dash shows your next event on the dashboard and gives one-tap directions to it.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Duo Dash uses the rear camera as a dashcam, recording the road ahead while it's on screen.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Duo Dash shows your favourite contacts so you can call or message them with one tap.</string>
+	<key>NSHomeKitUsageDescription</key>
+	<string>Duo Dash shows your garage door, locks, lights and scenes on the dashboard so you can open the garage or turn on the lights from the car.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Duo Dash keeps following your route when the screen is locked or another app is in front.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Duo Dash uses your location to show you on the map and give turn-by-turn directions.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Duo Dash listens when you tap a microphone button, so you can search, message and ask the assistant by voice.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Duo Dash saves dashcam clips you choose to your photo library.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Duo Dash turns what you say into text for searches, messages and the driving assistant.</string>
+	<key>SpotifyClientID</key>
+	<string>$(SPOTIFY_CLIENT_ID)</string>
+	<key>SpotifyRedirectURI</key>
+	<string>duodash://spotify-callback</string>
+	<key>SpotifySignInMode</key>
+	<string>$(DUODASH_SPOTIFY_MODE)</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<false/>
 	</dict>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>location</string>
+		<string>bluetooth-central</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>
 		<string>LaunchBackground</string>
 	</dict>
+	<key>UIStatusBarHidden</key>
+	<true/>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
@@ -65,25 +105,9 @@
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
-	<key>UIStatusBarHidden</key>
-	<true/>
-	<key>UIViewControllerBasedStatusBarAppearance</key>
-	<true/>
 	<key>UIUserInterfaceStyle</key>
 	<string>Dark</string>
-	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>Duo Dash shows your next event on the dashboard and gives one-tap directions to it.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Duo Dash uses the rear camera as a dashcam, recording the road ahead while it's on screen.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Duo Dash saves dashcam clips you choose to your photo library.</string>
-	<key>NSHomeKitUsageDescription</key>
-	<string>Duo Dash shows your garage door, locks, lights and scenes on the dashboard so you can open the garage or turn on the lights from the car.</string>
-	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Duo Dash connects to your Bluetooth OBD-II adapter to show live engine data, battery voltage and check-engine codes.</string>
-	<key>DuoDashEdition</key>
-	<string>$(DUODASH_EDITION)</string>
-	<key>DuoDashHomeKit</key>
-	<string>$(DUODASH_HOMEKIT)</string>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<true/>
 </dict>
 </plist>

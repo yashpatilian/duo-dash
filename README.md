@@ -1,6 +1,6 @@
 # Duo Dash
 
-**A CarPlay-style dashboard for your iPhone, built for the foldable iPhone Duo.**
+**A CarPlay-style dashboard for your iPhone, built for the foldable iPhone Duo.** · [duodash.app](https://duodash.app)
 
 Unfold an iPhone Duo on a dash mount and it becomes a head unit: maps with turn-by-turn,
 Apple Music and Spotify, calls and texts, and a voice assistant that plans your trip. It
@@ -8,6 +8,9 @@ follows the CarPlay layout, in one app with nothing to hand off.
 
 Made for the iPhone Duo, and it also runs on any iPhone or iPad on iOS 26: the layout adapts to
 whatever window it's given, so a spare iPhone or an iPad mini on a dash mount works too.
+
+> **⚠️ For passenger use only. Don't use Duo Dash while driving.** Set your route and music
+> before you set off, and follow your local road rules.
 
 [![Watch the demo](docs/media/demo-poster.jpg)](docs/media/duo-dash-demo.mp4)
 
@@ -62,6 +65,10 @@ whatever window it's given, so a spare iPhone or an iPad mini on a dash mount wo
 - **Heading up** or **north up** when you're just looking around.
 - **Copied addresses**: copy one from Messages or Messenger and Maps offers to take you
   there, with no paste prompt.
+- **Navigate with Google Maps or Waze** if you prefer (Settings → Navigation): every Go and
+  Start hands the trip to that app, stops included for Google Maps, while Duo Dash keeps the
+  route preview with time, distance and destination weather. On the Duo, Split View shows Duo
+  Dash beside it.
 
 **Voice assistant**
 - Ask out loud:
@@ -80,7 +87,7 @@ whatever window it's given, so a spare iPhone or an iPad mini on a dash mount wo
   - search by voice;
   - a full-screen player in the style of Apple Music, with blurred album art behind it and
     Liquid Glass controls.
-- **Spotify** (Premium): connect, now playing, controls, your playlists and recently
+- **Spotify** (Premium, through the Spotify app; see [Spotify's limits](docs/SPOTIFY_SETUP.md#spotifys-limits-first)): connect, now playing, controls, your playlists and recently
   played.
 - One now-playing bar and Home widget control whichever source is playing.
 
@@ -99,7 +106,7 @@ whatever window it's given, so a spare iPhone or an iPad mini on a dash mount wo
   feels-like, UV, wind, sunrise and more.
 - Weather on the map, and **at your destination when you arrive** in every route preview.
 
-**Car data** (with a ~A$12–60 Bluetooth OBD-II adapter)
+**Car data** (with a ~US$10–40 Bluetooth OBD-II adapter)
 - Live speed, RPM, coolant and intake temperatures, throttle, load and fuel level (whatever
   your car supports), plus battery voltage on any car.
 - Check-engine codes with plain-English descriptions, and clearing them when parked.
@@ -118,13 +125,24 @@ See [docs/CAR_SETUP.md](docs/CAR_SETUP.md) for what to buy and how to set it up.
 - On-device **Whisper** for dictation and the assistant, and natural on-device voices
   (**Kokoro**) for replies and directions, downloaded once. Apple's engines are the fallback.
 
+**YouTube** (for passengers)
+- YouTube inside Duo Dash with YouTube's official embedded player: search by typing or voice,
+  browse, and on the unfolded Duo the video plays on one half while you keep browsing on the
+  other. Big back, forward, reload and home buttons, picture in picture, and "Open in YouTube
+  app". Music pauses while a video plays.
+
+**Your other apps**
+- Google Maps, Waze, WhatsApp, Telegram, Audible, Pocket Casts, Overcast and other popular
+  apps you have installed can go in the dock (Settings → Dock → Apps on this iPhone), and all
+  of them are in the app grid. Tap to open the app.
+
 **And**
 - CarPlay's **app grid**: tap the bottom dock button on the Dashboard to switch between the
   Dashboard and all your apps.
 - Runs on any iPhone or iPad too; on big screens the whole interface scales up.
 - A mic button on every text field, for voice input.
-- **Settings** for the AI provider and key, voice, the map, places, the dock order, recents
-  and auto-open.
+- **Settings** for the AI provider and key, voice, the map and navigation app, places, the
+  dock order and apps, recents and auto-open.
 - A Shortcuts action, **Open Duo Dash**, so the app can open when your car's Bluetooth
   connects.
 - Everything you change is saved.
@@ -169,7 +187,7 @@ trusting the phone and turning on Developer Mode.
 - **Apple Intelligence** runs on the device.
 - **Claude** is used only if you choose it and add your own key. Then what you ask, your
   approximate location, your route, and any contact you name are sent to Anthropic to answer.
-- Your Claude key and Spotify token are kept in the iPhone's Keychain.
+- Your Claude key and Spotify sign-in (access and refresh tokens) are kept in the iPhone's Keychain.
 - No analytics, no tracking, no accounts.
 
 ## How it's built
@@ -205,8 +223,8 @@ More is on the way: day and night themes, a dock-side option, more assistant act
 more dashboard widgets. Ideas and bug reports are welcome in Issues (an AI triage bot
 answers and labels them; see [docs/AGENT_PIPELINE.md](docs/AGENT_PIPELINE.md)).
 
-**Duo Dock**, a car mount made for iPhone Duo that stops the unfolded phone sagging, is
-coming soon: [doc.yashyp.com](https://doc.yashyp.com).
+**The Duo Dash mount**, a car mount made for iPhone Duo that stops the unfolded phone sagging, is
+coming soon: A$59 for the first 10 orders, then A$70. [Register your interest](https://duodash.app/mount).
 
 ## Licence and disclaimer
 - **Licence:** Duo Dash is **source-available for personal use only**. You may read the

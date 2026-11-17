@@ -54,6 +54,9 @@ final class HomeModel {
     /// Arrival: armed once the car has been away from home; spent after one
     /// suggestion, until the car leaves again.
     @ObservationIgnored private var arrivalArmed = false
+    /// Consecutive fixes beyond `rearmDistance`. One stray fix (a cold start, a cell-tower
+    /// guess) mustn't count as having left home.
+    @ObservationIgnored private var farFixes = 0
     @ObservationIgnored private var arrivalSpent = false
     /// Per-accessory write generation, so an old write's result can't undo a newer one.
     @ObservationIgnored private var writeGeneration: [String: Int] = [:]
@@ -70,6 +73,8 @@ final class HomeModel {
     static let maxDashboardItems = 3
     /// Without a route home, don't offer anything while driving past faster than this (≈ 50 km/h).
     static let passingSpeed: CLLocationSpeed = 14
+    /// Fixes in a row beyond `rearmDistance` before a new trip home counts.
+    static let fixesToRearm = 3
 
     init(backend: HomeBackend? = nil, defaults: UserDefaults = .standard, resetState: Bool = LaunchOptions.resetState) {
         if resetState { Keys.all.forEach(defaults.removeObject(forKey:)) }
@@ -328,18 +333,23 @@ final class HomeModel {
                            speed: CLLocationSpeed?) -> ArrivalSuggestion? {
         guard let distance = distanceToHome, distance >= 0 else { return activeArrival }
         if distance > rearmDistance {
-            arrivalArmed = true
-            arrivalSpent = false
-            activeArrival = nil
+            farFixes += 1
+            if farFixes >= Self.fixesToRearm {
+                arrivalArmed = true
+                arrivalSpent = false
+                activeArrival = nil
+            }
             return nil
         }
+        farFixes = 0
         if let activeArrival { return activeArrival }
         guard status == .ready, arrivalArmed, !arrivalSpent, distance <= arrivalDistance else { return nil }
         if !isNavigatingHome, let speed, speed > Self.passingSpeed { return nil }
         guard var suggestion = makeArrivalSuggestion() else { return nil }
         arrivalSpent = true
-        if autoOpenGarageOnArrival, case let .openDoor(id) = suggestion.action,
-           accessory(id)?.kind == .garageDoor {
+        // Opening by itself needs a real, slow-enough speed reading (an unknown speed only offers).
+        if autoOpenGarageOnArrival, let speed, speed >= 0, speed <= Self.passingSpeed,
+           case let .openDoor(id) = suggestion.action, accessory(id)?.kind == .garageDoor {
             openGarage(id)
             suggestion.wasPerformed = true
         }

@@ -3,7 +3,7 @@
 Source of truth for decisions and status. Update this at the end of each work session.
 
 ## Decisions
-- **One app, no hand-offs.** Features that can't be done smoothly in-app are dropped (Shortcuts, Waze and Google Maps embedding, reading SMS or call history).
+- **One app, few hand-offs.** Features that can't be done smoothly in-app are dropped (Shortcuts, Waze and Google Maps embedding, reading SMS or call history). Exception (2026-11-17): drivers who prefer Google Maps or Waze can choose it in Settings → Navigation, and Go/Start then hands the trip off by URL scheme (see "Navigation apps, other apps' tiles, YouTube" below).
 - **SwiftUI + Observation (`@Observable`)**, Swift 5 language mode with explicit `@MainActor` on the models. Deployment target **iOS 26.0** (for Liquid Glass), built with **Xcode 27.1+ / iOS 27.1 SDK** (needed for iPhone Duo full-screen and hinge APIs). The fold APIs in `FoldGeometry.swift` (`reservedRegions(kind: .division)`, `onHingeChange`) compile as written on Xcode 27.2.
 - **Layout is size-driven, never orientation-driven.** Wider than tall → CarPlay-style sidebar **on the right** (iPhone Duo convention; clock on top, app icons, dashboard button at the bottom); otherwise → bottom bar of app icons + status row. This one rule covers inner landscape/portrait, cover screen, and Split View halves. `ShellLayout` keeps screen identity so nothing rebuilds when the window changes shape.
 - **Edge to edge (session 3).** The shell ignores the safe area and fills the whole screen; only the clock/status row and the dock tiles are kept clear of the camera. Reason: the cover screen reports a right inset of 84 pt (a system status column with the camera) for the full height, plus 34 pt at the bottom, which left a third of the screen empty.
@@ -91,9 +91,8 @@ Source of truth for decisions and status. Update this at the end of each work se
 - New apps: Weather (iOS Weather style), Calendar (Day / Month / Upcoming), Car (OBD-II),
   Home (HomeKit, opt-in per build), Dashcam (Ultra Wide, 10-min loop). On-device speech
   (Whisper + Kokoro). CarPlay app grid. iPad/iPhone universal with whole-UI scaling.
-- Business: `web/dock/` product site (not deployed), `docs/business/` plan, pricing (A$79,
-  A$69 launch), pipeline, marketing, launch checklist. Mount design/BOM/FEA lives in
-  `~/Downloads/3D Printing/Duo Holder/v2/`.
+- Business: `web/dock/` product site (not deployed). Business plans and the mount's design
+  files are kept outside this repository.
 - GitHub agent pipeline (`.github/workflows`, `docs/AGENT_PIPELINE.md`): off until the
   ANTHROPIC_API_KEY secret is added to the public repo.
 - Testing notes: UI tests use `revealInDock` (DockHelpers.swift) because the dock scrolls
@@ -102,21 +101,95 @@ Source of truth for decisions and status. Update this at the end of each work se
   a 1-pt marker element `screen.<app>`; never wrap a screen in an accessibility container
   (it overwrites the app's own ids).
 - Known follow-up: `music.row.N` ids can repeat across sections; make them unique.
-## Welcome tour, Duo Dock, commercial edition (2026-11-17)
+## Welcome tour, Duo Dash mount, commercial edition (2026-11-17)
 - **Welcome tour** (`DuoDash/Onboarding/`): first launch only (`onboarding.completed` in UserDefaults);
   replay from Settings → About → "Show the welcome tour". Flow: welcome + "used CarPlay?" → music
-  (Apple Music asks for Media access via `AppleMusicModel.requestAccess()`; Spotify → one-time setup,
-  Now = 7-step walkthrough of docs/SPOTIFY_SETUP.md + Mac command + QR to the guide + video slot)
+  (Apple Music asks for Media access via `AppleMusicModel.requestAccess()`; Spotify → with a bundled
+  client ID, "Connect Spotify" (sign in once); without one, Now = 7-step walkthrough of
+  docs/SPOTIFY_SETUP.md + Mac command + QR to the guide + video slot)
   → 4 tour pages (new users) or "What's new compared with CarPlay" → permissions (Location, Contacts,
-  Microphone & Speech; only undecided ones; page skipped when none) → Duo Dock sheet. Answers and
+  Microphone & Speech; only undecided ones; page skipped when none) → Duo Dash mount sheet. Answers and
   the current page persist (`onboarding.*` keys). Hidden under `-UITest`/`-Capture` unless
   `-Onboarding`; `-OnboardingStep <id>` opens a page directly (screenshots). Location isn't
   started while the tour is up, so its Allow button asks.
 - Layout follows the app's rules: size-driven (wide = art beside text, otherwise stacked), split on
   the fold when the Duo is half open (`FoldGeometry`), iPad scaled like the dashboard. Buttons use
   system Liquid Glass (`.glass` / `.glassProminent`, `GlassEffectContainer`, `glassEffectID`).
-- **Duo Dock** car mount: promo sheet at the end of the tour and Settings → Duo Dock; store link is
-  one constant, `DockStore.url` (https://doc.yashyp.com).
+- **Duo Dash mount** car mount: promo sheet at the end of the tour and Settings → Duo Dash mount; store link is
+  one constant, `DockStore.url` (https://duodash.app/mount).
 - **Editions:** `DUODASH_EDITION` (`personal` default, `commercial`) → Info.plist `DuoDashEdition`
   → `Edition.current`. Commercial (`-xcconfig Config/Commercial.xcconfig`): "Duo Dash" name and
   icon, SF Symbol tiles, no "CarPlay" wording, `BrandedIcons.xcassets` excluded. See docs/COMMERCIAL.md.
+- **Announcements (push):** opt-in Settings → Notifications (hidden unless `DUODASH_NOTIFY_URL` and
+  `DUODASH_PUSH = YES`), Cloudflare Worker + D1 in `backend/notifications/`, sent with
+  `scripts/notify.sh`. TestFlight = `Config/TestFlight.xcconfig` (`com.duodash.beta`, CarPlay look). See docs/NOTIFICATIONS.md.
+
+## Navigation apps, other apps' tiles, YouTube (2026-11-17)
+- **Navigate with** (Settings → Navigation, `nav.app`): Apple Maps (Duo Dash's own guidance, default),
+  Google Maps or Waze, selectable once installed (`canOpenURL` on `comgooglemaps://` / `waze://`).
+  `NavigationHandoff` (`DuoDash/Maps/ExternalNavigation.swift`) is owned by `NavigationModel`, so every
+  path that calls `go(to:via:)` or `start()` (search result Start, saved places, calendar Go, Next Up,
+  the assistant's plan_route / start_navigation, resume) hands off. Google Maps gets the stops
+  (`comgooglemaps://?saddr=&daddr=A+to:B+to:dest&directionsmode=driving`); Waze only the destination
+  (`waze://?ll=…&navigate=yes`), and the preview says the stops weren't passed. Not installed, or iOS
+  refuses the scheme → the web links (google.com/maps/dir/?api=1…, waze.com/ul…). Coordinates are
+  POSIX-formatted, names percent-encoded. The in-app preview (route, ETA, destination weather) stays,
+  with "Open in Google Maps/Waze", "Guide in Duo Dash instead" and the Split View tip.
+- **Apps on this iPhone** (Settings → Dock): `ExternalAppCatalog` (`DuoDash/App/ExternalApps.swift`),
+  16 apps with URL schemes, all in `LSApplicationQueriesSchemes` (18 of 50 with spotify and
+  facetime-audio). Tiles are Duo Dash's own drawing (SF Symbol, brand colour, small ↗), never logos.
+  The dock order (`dock.order`) now holds `DockEntry` ids: a screen's raw value or `ext.<id>`. Old
+  orders load unchanged; unknown screens and apps dropped; `AppModel.dockOrder` is still the built-in
+  screens in order. Added apps hide while uninstalled and come back if reinstalled. The app grid shows
+  every installed catalogue app. `-DemoExternalApps` pretends Google Maps, Waze, WhatsApp, YouTube and
+  Audible are installed (UI tests, screenshots).
+- **YouTube** (`DuoDash/YouTube/`, `screen.youtube`, `duodash://open/youtube`): browser web view on
+  m.youtube.com (home, search `results?search_query=`) + player web view with the official IFrame
+  Player (`youtube-nocookie.com` host, `playsinline`, origin = https://<bundle id>). A capture-phase tap
+  handler (Duo Dash's own script world) sends video links to the player; a URL observer catches the
+  rest. Wide windows (≥ 560 pt and wider than tall): video half + browser half, split on the fold;
+  otherwise stacked. Only main-frame navigation is checked (YouTube, youtu.be, youtube-nocookie and
+  Google sign-in hosts stay; anything else opens in Safari): frames and ads are untouched. Videos the
+  embed refuses get "Play on YouTube's site". Playing takes a `.playback`/`.moviePlayback` session
+  (music pauses); pausing releases it with `notifyOthersOnDeactivation`. Leaving the screen or the app
+  pauses unless picture in picture is on. No speed lock: passenger use only, `Edition.safetyNotice`
+  as a dismissible banner once per launch.
+- Not verified on device: real Google Maps/Waze hand-off, YouTube playback/PiP/audio ducking with
+  Apple Music and Spotify, Google sign-in inside the web view, embed referrer acceptance (YouTube
+  error 153 if the origin is rejected).
+
+- **Spotify sign in once (2026-11-17):** Authorization Code with PKCE (`DuoDash/Music/SpotifyAuth.swift`,
+  `ASWebAuthenticationSession` → accounts.spotify.com, scope `app-remote-control`, no client secret);
+  access + refresh token + expiry in the Keychain (`KeychainSpotifyTokenStore`, after-first-unlock,
+  this device only). Before each App Remote connect the token is renewed silently when expired or
+  within 5 minutes of it (`SpotifyTokenPlan`); only `invalid_grant` after a tap asks to sign in again
+  (on launch it just shows Reconnect). `authorizeAndPlayURI` is kept only to wake Spotify when it isn't
+  running. Sign out (Spotify screen) clears the Keychain item. Chose own PKCE over `SPTSessionManager`
+  so the verifier/state are ours and testable and the refresh token is stored by us. A bundled client
+  ID (`SpotifyConfig.hasBundledClientID`, `-SpotifyBundledClientID YES|NO` for UI tests) skips the
+  developer-app walkthrough in the tour.
+- **Spotify development mode is permanent (owner, 2026-11-17):** extended quota is only for registered
+  businesses with 250k+ MAU, so the shared developer app allows 5 allow-listed Premium accounts.
+  Hence `SpotifySignInMode` (`DuoDash/Music/SpotifyAccess.swift`): `sign-in` (PKCE, source builds) or
+  `app-remote` (TestFlight/App Store via `DUODASH_SPOTIFY_MODE`; token only from the Spotify app's
+  `authorizeAndPlayURI`). A refused PKCE sign-in/refresh (403, `invalid_client`, "not registered")
+  falls back to `app-remote` and remembers it; a refused App Remote authorise shows `.limited`
+  ("Open Spotify", Try Again), remembered, no automatic retries. Settings → Spotify → "Use My Own
+  Spotify Developer App" stores a Client ID in UserDefaults and forces `sign-in`. The Spotify screen
+  makes no Web API calls in either mode. Not yet verified: whether App Remote accepts accounts outside
+  the allow-list (checklist in docs/SPOTIFY_SETUP.md).
+
+## Duo Dash Pro (2026-11-17)
+- **StoreKit 2 in-app purchase.** `com.duodash.pro.monthly` (A$2.99), `com.duodash.pro.yearly`
+  (A$19.99, 1-week free trial) in the group "Duo Dash Pro", and the non-consumable
+  `com.duodash.pro.lifetime` (A$39.99). `ProStore` (DuoDash/StoreKit) wraps StoreKit behind
+  `ProStoreBackend`; `ProGate` holds the gating decisions. Setup and the feature table:
+  docs/COMMERCIAL.md → "Duo Dash Pro".
+- **Pro adds:** themes (`ThemeSettings`; `Theme.accent` follows it), Home layout
+  (`HomeLayoutSettings`: card order + third card; narrow windows keep the map first), alternate
+  app icons, dashcam impact detection (CoreMotion, `ImpactDetector`) and 45/60-min loops, trip
+  history (`TripDetector` / `TripStore`, Application Support/Trips, recorded only with Pro).
+  In the App Store edition the whole Dashcam is Pro; in personal/TestFlight builds it stays free.
+- Paywall and trip history are overlays drawn by RootView (not system sheets), so they fit the
+  app's window at every size, including the test canvas. Launch arguments: `-ProUnlocked`
+  (Pro), `-UITest` alone = demo store, not Pro; `-DemoStore` = demo store outside tests.

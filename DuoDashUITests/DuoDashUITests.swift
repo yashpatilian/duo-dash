@@ -99,15 +99,18 @@ final class DuoDashUITests: XCTestCase {
         open("music", file: file, line: line)
         let tab = app.buttons["music.tab.playlists"]
         XCTAssertTrue(tab.waitForExistence(timeout: 5), file: file, line: line)
-        tab.tap()
+        tab.tapCentre()
         // A page left open on this tab: go back to the list first.
         let back = app.buttons["music.detail.back"]
         if back.exists { back.tap() }
         let rows = app.buttons.matching(identifier: "music.row.\(row)")
         XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 5), "playlist row \(row) missing", file: file, line: line)
         // Tap the one on screen (the id can appear in more than one section).
-        let rowButton = rows.allElementsBoundByIndex.first { !$0.frame.isEmpty && $0.isHittable } ?? rows.firstMatch
-        rowButton.tap()
+        // Kept-alive screens sit far off to the side; pick the copy inside the window.
+        let window = app.windows.firstMatch.frame
+        let visible = rows.allElementsBoundByIndex.filter { !$0.frame.isEmpty && window.contains(CGPoint(x: $0.frame.midX, y: $0.frame.midY)) }
+        let rowButton = visible.first { $0.isHittable } ?? visible.first ?? rows.firstMatch
+        rowButton.tapCentre()
         XCTAssertTrue(musicDetail.waitForExistence(timeout: 5), "playlist page did not open", file: file, line: line)
         XCTAssertTrue(app.buttons["music.detail.play"].waitForExistence(timeout: 5), "playlist songs did not load", file: file, line: line)
     }
@@ -257,7 +260,7 @@ final class DuoDashUITests: XCTestCase {
         startPlaylist()
         // Hop between playlists, hammering Play, Shuffle and song rows without waiting.
         for (step, row) in [0, 1, 2, 1, 0, 2].enumerated() {
-            app.buttons["music.tab.playlists"].tap()
+            app.buttons["music.tab.playlists"].tapCentre()
             let back = app.buttons["music.detail.back"]
             if back.exists && back.isHittable { back.tap() }
             let button = app.buttons["music.row.\(row)"]
@@ -282,12 +285,12 @@ final class DuoDashUITests: XCTestCase {
     func testMusicSearchAndAlbums() {
         launch()
         open("music")
-        app.buttons["music.tab.albums"].tap()
+        app.buttons["music.tab.albums"].tapCentre()
         XCTAssertTrue(app.buttons["music.row.0"].waitForExistence(timeout: 5))
         app.buttons["music.shuffle.0"].tap()
         XCTAssertTrue(app.staticTexts["music.np.title"].waitForExistence(timeout: 5))
 
-        app.buttons["music.tab.search"].tap()
+        app.buttons["music.tab.search"].tapCentre()
         let field = app.textFields["music.search"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
@@ -338,14 +341,14 @@ final class DuoDashUITests: XCTestCase {
         XCTAssertEqual(nowPlayingTitle, songTitle, "previous did not go back to the tapped song")
 
         // The page is still open on the Playlists tab, where it was left.
-        app.buttons["music.tab.playlists"].tap()
+        app.buttons["music.tab.playlists"].tapCentre()
         XCTAssertTrue(musicDetail.waitForExistence(timeout: 3), "playlist page was not kept")
         XCTAssertTrue(song.isHittable, "playlist page lost its scroll position")
 
         // Back returns to the list.
         app.buttons["music.detail.back"].tap()
         XCTAssertTrue(app.buttons["music.row.0"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["music.row.0"].isHittable, "list not shown after back")
+        XCTAssertTrue(app.buttons["music.row.0"].waitForHittable(), "list not shown after back")
         XCTAssertFalse(musicDetail.exists, "playlist page still showing after back")
         XCTAssertTrue(app.buttons["music.shuffle.0"].exists, "row shuffle quick action missing")
         assertRunning()
@@ -355,7 +358,7 @@ final class DuoDashUITests: XCTestCase {
     func testAlbumPageShuffleAndFilter() {
         launch(canvas: "340x600")
         open("music")
-        app.buttons["music.tab.albums"].tap()
+        app.buttons["music.tab.albums"].tapCentre()
         let album = app.buttons["music.row.0"]
         XCTAssertTrue(album.waitForExistence(timeout: 5))
         album.tap()
@@ -369,9 +372,9 @@ final class DuoDashUITests: XCTestCase {
         XCTAssertEqual(app.buttons["music.np.playpause"].label, "Pause")
 
         // Re-tapping the tab you're on closes the page.
-        app.buttons["music.tab.albums"].tap()
+        app.buttons["music.tab.albums"].tapCentre()
         XCTAssertTrue(musicDetail.waitForExistence(timeout: 3))
-        app.buttons["music.tab.albums"].tap()
+        app.buttons["music.tab.albums"].tapCentre()
         XCTAssertTrue(app.buttons["music.row.0"].waitForExistence(timeout: 3))
         XCTAssertFalse(musicDetail.exists)
 

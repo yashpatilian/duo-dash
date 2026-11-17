@@ -10,8 +10,12 @@ enum Theme {
     static let surface = Color(red: 0.110, green: 0.110, blue: 0.118)
     /// Controls sitting on a tile (#2C2C2E).
     static let surfaceRaised = Color(red: 0.173, green: 0.173, blue: 0.180)
-    static let accent = Color(red: 0.039, green: 0.518, blue: 1.0)      // system blue
-    static let onAccent = Color.white
+    /// System blue by default; Duo Dash Pro → Themes can change it (`ThemeSettings`).
+    /// Read from a view's `body`, so the view redraws when the theme changes.
+    @MainActor static var accent: Color { ThemeSettings.shared.accentColor }
+    @MainActor static var onAccent: Color { ThemeSettings.shared.effectiveAccent.onColor }
+    /// System blue, for the few places that keep it whatever the theme (calendar default colour).
+    static let systemBlue = Color(red: 0.039, green: 0.518, blue: 1.0)
     static let route = Color(red: 0.039, green: 0.518, blue: 1.0)
     static let positive = Color(red: 0.188, green: 0.820, blue: 0.345)  // system green
     static let warning = Color(red: 1.0, green: 0.624, blue: 0.039)

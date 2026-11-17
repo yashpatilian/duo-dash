@@ -8,7 +8,7 @@ import SwiftUI
 struct DockView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dashMetrics) private var metrics
-    @State private var dragging: DockItem?
+    @State private var dragging: DockEntry?
     /// Fade an end of the strip only when icons are actually hidden past it.
     @State private var hiddenBefore = false
     @State private var hiddenAfter = false
@@ -49,7 +49,7 @@ struct DockView: View {
                         }
                         .mask(edgeFade(vertical: true))
                         .accessibilityIdentifier("dock.scroll")
-                        DockButton(item: .home, tile: tile, isSelected: app.selected == .home) { app.homeButtonTapped() }
+                        DockButton(entry: .app(.home), tile: tile, isSelected: app.selected == .home) { app.homeButtonTapped() }
                             .frame(height: tile + 12)
                     }
                 } else {
@@ -71,7 +71,7 @@ struct DockView: View {
                         }
                         .mask(edgeFade(vertical: false))
                         .accessibilityIdentifier("dock.scroll")
-                        DockButton(item: .home, tile: tile, isSelected: app.selected == .home) { app.homeButtonTapped() }
+                        DockButton(entry: .app(.home), tile: tile, isSelected: app.selected == .home) { app.homeButtonTapped() }
                             .frame(width: tile + 12)
                     }
                 }
@@ -85,16 +85,17 @@ struct DockView: View {
     /// The reorderable app tiles. Press and hold a tile, then drag it onto another.
     @ViewBuilder
     private func tiles(tile: CGFloat) -> some View {
-        ForEach(app.dockOrder) { item in
-            DockButton(item: item, tile: tile, isSelected: app.selected == item) { app.open(item) }
+        // Duo Dash's screens and any apps on this phone added in Settings → Dock.
+        ForEach(app.visibleDockEntries) { entry in
+            DockButton(entry: entry, tile: tile, isSelected: entry.dockItem.map { app.selected == $0 } ?? false) { app.open(entry) }
                 .frame(width: tile + 12, height: tile + 12)
                 .onDrag {
-                    dragging = item
-                    return NSItemProvider(object: item.rawValue as NSString)
+                    dragging = entry
+                    return NSItemProvider(object: entry.id as NSString)
                 } preview: {
-                    AppTile(item: item, size: tile)
+                    DockEntryTile(entry: entry, size: tile)
                 }
-                .onDrop(of: [.text], delegate: DockReorderDelegate(target: item, dragging: $dragging, app: app))
+                .onDrop(of: [.text], delegate: DockReorderDelegate(target: entry, dragging: $dragging, app: app))
         }
     }
 
@@ -112,13 +113,13 @@ struct DockView: View {
 
 /// Live reordering while a tile is dragged over the others.
 private struct DockReorderDelegate: DropDelegate {
-    let target: DockItem
-    @Binding var dragging: DockItem?
+    let target: DockEntry
+    @Binding var dragging: DockEntry?
     let app: AppModel
 
     func dropEntered(info: DropInfo) {
         guard let dragging, dragging != target else { return }
-        withAnimation(.snappy(duration: 0.2)) { app.moveDockItem(dragging, to: target) }
+        withAnimation(.snappy(duration: 0.2)) { app.moveDockEntry(dragging, to: target) }
     }
 
     func dropUpdated(info: DropInfo) -> DropProposal? { DropProposal(operation: .move) }
@@ -131,14 +132,14 @@ private struct DockReorderDelegate: DropDelegate {
 
 /// One app tile: a coloured rounded square with a white glyph, like an app icon.
 private struct DockButton: View {
-    let item: DockItem
+    let entry: DockEntry
     let tile: CGFloat
     let isSelected: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            AppTile(item: item, size: tile)
+            DockEntryTile(entry: entry, size: tile)
                 .padding(3)
                 .overlay {
                     RoundedRectangle(cornerRadius: tile * 0.225 + 3, style: .continuous)
@@ -148,8 +149,8 @@ private struct DockButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(PressableStyle())
-        .accessibilityLabel(item.title)
-        .accessibilityIdentifier("dock.\(item.rawValue)")
+        .accessibilityLabel(entry.title)
+        .accessibilityIdentifier("dock.\(entry.id)")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }

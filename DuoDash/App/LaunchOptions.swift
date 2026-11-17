@@ -15,6 +15,10 @@ enum LaunchOptions {
     /// Wipe saved favourites / tab / route on launch (clean test runs).
     static var resetState: Bool { arguments.contains("-ResetState") }
 
+    /// Pretend a few catalogue apps (Google Maps, Waze, WhatsApp…) are installed and put
+    /// them in the dock: screenshots and UI tests of the "Apps on this iPhone" tiles.
+    static var demoExternalApps: Bool { arguments.contains("-DemoExternalApps") }
+
     /// Use the built-in demo music library instead of the Music app.
     static var usesDemoMusic: Bool {
         #if targetEnvironment(simulator)

@@ -37,7 +37,8 @@ final class SpotifyModelTests: XCTestCase {
 
         model.connect()
         XCTAssertEqual(model.status, .connecting)
-        XCTAssertTrue(model.isAwaitingRedirect)
+        // Signs in first (PKCE), then opens Spotify to start it.
+        await waitUntil { model.isAwaitingRedirect || model.status == .connected }
         await waitUntil { model.status == .connected }
         XCTAssertEqual(model.status, .connected)
         XCTAssertEqual(backend.authorizeCount, 1)
@@ -108,6 +109,8 @@ final class SpotifyModelTests: XCTestCase {
         model.redirectTimeout = .milliseconds(100)
         model.connect()
         XCTAssertEqual(model.status, .connecting)
+        await waitUntil { model.isAwaitingRedirect } // signed in, Spotify opened
+        XCTAssertTrue(model.isAwaitingRedirect)
         model.appDidBecomeActive() // back from Spotify with no redirect
         await waitUntil { model.status != .connecting }
         XCTAssertTrue(isDisconnected(model.status))

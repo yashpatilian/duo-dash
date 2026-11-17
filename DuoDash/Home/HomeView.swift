@@ -9,6 +9,7 @@ struct HomeView: View {
     @Environment(CalendarModel.self) private var calendar
     @Environment(CarDataModel.self) private var car
     @Environment(NavigationModel.self) private var navigation
+    @Environment(HomeLayoutSettings.self) private var homeLayout
     @Environment(\.dashMetrics) private var metrics
     @State private var position: MapCameraPosition = MapOrientation.current().followPosition(guiding: false)
 
@@ -24,39 +25,88 @@ struct HomeView: View {
         GeometryReader { proxy in
             let size = proxy.size
             let wide = metrics.homeIsSplit
-            let split = Self.splitWidths(width: size.width, fold: wide ? FoldGeometry.foldFrame(in: proxy) : nil)
+            // Duo Dash Pro → Home layout can put the map on the right and reorder the cards.
+            let mapLeft = !wide || homeLayout.mapOnLeft
+            let fold = wide ? FoldGeometry.foldFrame(in: proxy) : nil
+            let split = Self.columnWidths(width: size.width, fold: fold, mapOnLeft: mapLeft)
             let layout = wide ? AnyLayout(HStackLayout(spacing: split.gap))
                               : AnyLayout(VStackLayout(spacing: Theme.gap))
             layout {
-                map
-                    .frame(width: wide ? split.map : nil)
-                    .layoutPriority(1)
+                if mapLeft {
+                    map
+                        .frame(width: wide ? split.map : nil)
+                        .layoutPriority(1)
+                }
 
                 VStack(spacing: Theme.gap) {
                     if wide {
                         // Now Playing takes the spare height (big artwork); the others keep their natural size.
-                        NowPlayingCard()
-                        NextTurnCard().fixedSize(horizontal: false, vertical: true)
-                        if size.height >= 520 {
-                            // Live car data when an OBD adapter is connected; else the next event + weather; else favourite contacts.
-                            if car.state.isConnected {
-                                CarDashboardCard(compact: true, onOpen: { app.open(.car) })
-                                    .frame(maxHeight: 150)
-                            } else if calendar.nextEvent != nil {
-                                NextUpCard(onNavigate: { navigation.go(to: $0) }, onOpenCalendar: { app.open(.calendar) })
-                                    .frame(maxHeight: 150)
-                            } else {
-                                FavouriteContactsCard().fixedSize(horizontal: false, vertical: true)
-                            }
+                        ForEach(homeLayout.wideColumn) { card in
+                            wideCard(card, height: size.height)
                         }
                     } else {
-                        NextTurnCard().fixedSize(horizontal: false, vertical: true)
-                        NowPlayingCard(compact: true).fixedSize(horizontal: false, vertical: true)
+                        ForEach(homeLayout.narrowCards) { card in
+                            if card == .nextTurn {
+                                NextTurnCard().fixedSize(horizontal: false, vertical: true)
+                            } else {
+                                NowPlayingCard(compact: true).fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
                     }
                 }
                 .frame(width: wide ? split.cards : nil)
+
+                if !mapLeft {
+                    map
+                        .frame(width: split.map)
+                        .layoutPriority(1)
+                }
             }
         }
+    }
+
+    @ViewBuilder
+    private func wideCard(_ card: HomeCard, height: CGFloat) -> some View {
+        switch card {
+        case .nowPlaying:
+            NowPlayingCard()
+        case .nextTurn:
+            NextTurnCard().fixedSize(horizontal: false, vertical: true)
+        case .extra:
+            if height >= 520 { extraCard }
+        case .map:
+            EmptyView()
+        }
+    }
+
+    /// The third card. Automatic (the free behaviour): live car data when an OBD adapter is
+    /// connected; else the next event + weather; else favourite contacts.
+    @ViewBuilder
+    private var extraCard: some View {
+        switch homeLayout.effectiveExtra {
+        case .automatic:
+            if car.state.isConnected {
+                carCard
+            } else if calendar.nextEvent != nil {
+                nextUpCard
+            } else {
+                FavouriteContactsCard().fixedSize(horizontal: false, vertical: true)
+            }
+        case .car: carCard
+        case .nextEvent: nextUpCard
+        case .contacts: FavouriteContactsCard().fixedSize(horizontal: false, vertical: true)
+        case .weather: HomeWeatherCard(onOpen: { app.open(.weather) }).frame(maxHeight: 150)
+        }
+    }
+
+    private var carCard: some View {
+        CarDashboardCard(compact: true, onOpen: { app.open(.car) })
+            .frame(maxHeight: 150)
+    }
+
+    private var nextUpCard: some View {
+        NextUpCard(onNavigate: { navigation.go(to: $0) }, onOpenCalendar: { app.open(.calendar) })
+            .frame(maxHeight: 150)
     }
 
     private var map: some View {
@@ -92,6 +142,15 @@ struct HomeView: View {
         }
         let cards = min(420, max(250, width * 0.4))
         return (max(0, width - cards - Theme.gap), cards, Theme.gap)
+    }
+
+    /// `splitWidths` with the map on either side. On the fold, each column keeps its own half;
+    /// otherwise the map keeps the larger share wherever it is.
+    static func columnWidths(width: CGFloat, fold: CGRect?, mapOnLeft: Bool) -> (map: CGFloat, cards: CGFloat, gap: CGFloat) {
+        let split = splitWidths(width: width, fold: fold)
+        guard !mapOnLeft, let fold, fold.height > fold.width, fold.minX > 200, width - fold.maxX > 200 else { return split }
+        // Fold-aligned and the map on the right: the right half is the map's.
+        return (split.cards, split.map, split.gap)
     }
 }
 

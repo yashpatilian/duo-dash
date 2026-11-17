@@ -92,7 +92,7 @@ final class ClaudeBrainTests: XCTestCase {
     }
 
     private var context: AssistantContext {
-        AssistantContext(now: Date(), coordinate: .init(latitude: -37.8136, longitude: 144.9631),
+        AssistantContext(now: Date(), coordinate: .init(latitude: 37.2864, longitude: -122.0369),
                          locality: "Springfield, IL", city: "Springfield", region: "Illinois", routeSummary: nil)
     }
 
@@ -151,7 +151,7 @@ final class ClaudeBrainTests: XCTestCase {
              "content": ["type": "web_search_tool_result_error", "error_code": "max_uses_exceeded"]],
             text("Let me look."),
             ["type": "tool_use", "id": "toolu_A", "name": "search_places", "input": ["query": "petrol station", "near": "along_route"]],
-            ["type": "tool_use", "id": "toolu_B", "name": "plan_route", "input": ["destination": "MCG"]],
+            ["type": "tool_use", "id": "toolu_B", "name": "plan_route", "input": ["destination": "the stadium"]],
         ]
         StubURLProtocol.replies = [
             .init(status: 200, json: ["stop_reason": "tool_use", "content": firstContent]),

@@ -71,7 +71,8 @@ they still need to do on the phone.
   ```
   UI tests take about 25 minutes. `DUODASH_CANVAS=WxH` makes the app render at a given window
   size (cover screen, Split View, inner screen). The Simulator uses demo backends for Apple
-  Music and Spotify; `-DemoSpotify` and `-SeedContacts` launch arguments exist for tests.
+  Music and Spotify; `-DemoSpotify` and `-SeedContacts` launch arguments exist for tests, and
+  `-SpotifyBundledClientID YES|NO` picks the tour's Spotify path whatever `Secrets.xcconfig` holds.
   The first-launch welcome tour is hidden under `-UITest`/`-Capture`; pass `-Onboarding` to show
   it, or `-OnboardingStep <id>` (e.g. `spotify.3`, `promo`) to open one page.
   `-xcconfig Config/Commercial.xcconfig` builds the App Store edition (see docs/COMMERCIAL.md).

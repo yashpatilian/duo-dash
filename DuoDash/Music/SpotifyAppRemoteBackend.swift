@@ -7,11 +7,13 @@ import SpotifyiOS
 @MainActor
 final class SpotifyAppRemoteBackend: NSObject, SpotifyBackend {
     let isDemo = false
-    let isConfigured: Bool
+    var isConfigured: Bool { clientID != nil }
+    /// The Client ID in use: this build's, or the user's own (Settings → Spotify). nil: none.
+    private(set) var clientID: String?
     var onEvent: (@MainActor (SpotifyBackendEvent) -> Void)?
 
     private let redirectURL: URL
-    private let appRemote: SPTAppRemote?
+    private var appRemote: SPTAppRemote?
     /// Content items by identifier: `fetchChildren` and `playItem` want the
     /// SDK's own objects back.
     private var contentItems: [String: SPTAppRemoteContentItem] = [:]
@@ -19,20 +21,23 @@ final class SpotifyAppRemoteBackend: NSObject, SpotifyBackend {
 
     override init() {
         let info = Bundle.main.infoDictionary ?? [:]
-        let clientID = (info["SpotifyClientID"] as? String ?? "").trimmingCharacters(in: .whitespaces)
-        let redirect = URL(string: info["SpotifyRedirectURI"] as? String ?? "") ?? URL(string: "duodash://spotify-callback")!
-        redirectURL = redirect
-        // An unset build setting comes through empty (or as the literal "$(…)").
-        isConfigured = !clientID.isEmpty && !clientID.hasPrefix("$(")
-        if isConfigured {
-            let configuration = SPTConfiguration(clientID: clientID, redirectURL: redirect)
-            // Blank: carry on with whatever the user last played in Spotify.
-            configuration.playURI = ""
-            appRemote = SPTAppRemote(configuration: configuration, logLevel: .error)
-        } else {
-            appRemote = nil
-        }
+        redirectURL = URL(string: info["SpotifyRedirectURI"] as? String ?? "") ?? URL(string: SpotifyConfig.redirectURI)!
         super.init()
+        setClientID(SpotifyConfig.clientID(info: info))
+    }
+
+    func setClientID(_ clientID: String?) {
+        guard clientID != self.clientID || appRemote == nil else { return }
+        if let appRemote, appRemote.isConnected { appRemote.disconnect() }
+        appRemote?.delegate = nil
+        contentItems = [:]
+        imageSources = [:]
+        self.clientID = clientID
+        guard let clientID else { appRemote = nil; return }
+        let configuration = SPTConfiguration(clientID: clientID, redirectURL: redirectURL)
+        // Blank: carry on with whatever the user last played in Spotify.
+        configuration.playURI = ""
+        appRemote = SPTAppRemote(configuration: configuration, logLevel: .error)
         appRemote?.delegate = self
     }
 
@@ -62,7 +67,11 @@ final class SpotifyAppRemoteBackend: NSObject, SpotifyBackend {
             let expiresIn = parameters["expires_in"].flatMap(TimeInterval.init) ?? 3600
             return .token(token, expiresIn: expiresIn)
         }
-        return .failed(parameters[SPTAppRemoteErrorDescriptionKey] ?? "Spotify didn't allow the connection.")
+        let description = parameters[SPTAppRemoteErrorDescriptionKey]
+        if SpotifyRefusal.isNotAllowed([parameters["error"], description].compactMap { $0 }.joined(separator: " ")) {
+            return .refused(description ?? "Spotify doesn't allow this account.")
+        }
+        return .failed(description ?? "Spotify didn't allow the connection.")
     }
 
     func connect(accessToken: String) {

@@ -1,6 +1,6 @@
 import XCTest
 
-/// The first-launch welcome tour: both main paths, the Duo Dock sheet, and replaying it from
+/// The first-launch welcome tour: both main paths, the Duo Dash mount sheet, and replaying it from
 /// Settings. Other UI suites pass -UITest, which hides the tour unless -Onboarding is given.
 final class OnboardingUITests: XCTestCase {
     private var app: XCUIApplication!
@@ -41,14 +41,14 @@ final class OnboardingUITests: XCTestCase {
         }
     }
 
-    /// Permissions page (only when something is still undecided), then the Duo Dock sheet.
+    /// Permissions page (only when something is still undecided), then the Duo Dash mount sheet.
     private func passPermissionsToPromo() {
         let permissions = element("onboarding.page.permissions")
         let promo = element("dock.promo.headline")
         let deadline = Date().addingTimeInterval(8)
         while Date() < deadline && !permissions.exists && !promo.exists { usleep(200_000) }
         if permissions.exists { tap("onboarding.next") }
-        XCTAssertTrue(promo.waitForExistence(timeout: 8), "Duo Dock sheet not shown")
+        XCTAssertTrue(promo.waitForExistence(timeout: 8), "Duo Dash mount sheet not shown")
     }
 
     func testUsedCarPlayWithAppleMusic() {
@@ -86,13 +86,14 @@ final class OnboardingUITests: XCTestCase {
         }
         passPermissionsToPromo()
         let get = app.buttons["dock.promo.get"]
-        XCTAssertTrue(get.exists && get.isHittable, "Get Duo Dock missing")
+        XCTAssertTrue(get.exists && get.isHittable, "Register interest missing")
         XCTAssertTrue(app.buttons["dock.promo.notNow"].isHittable)
         XCTAssertTrue(element("dock.promo.headline").exists)
     }
 
+    /// A build without a bundled Spotify client ID walks through making a developer app.
     func testSpotifySetupNowWalkthrough() {
-        launch(["-UITest", "-ResetState", "-Onboarding"])
+        launch(["-UITest", "-ResetState", "-Onboarding", "-SpotifyBundledClientID", "NO"])
         tap("onboarding.carplay.yes")
         tap("onboarding.music.both")
         dismissAlerts()
@@ -106,6 +107,18 @@ final class OnboardingUITests: XCTestCase {
         XCTAssertTrue(element("onboarding.spotify.video").exists, "video slot missing")
         tap("onboarding.next")
         expectPage("whatsNew")
+    }
+
+    /// A build with a bundled client ID: one Connect (sign in once), no walkthrough.
+    func testSpotifyConnectWithBundledClientID() {
+        launch(["-UITest", "-ResetState", "-Onboarding", "-SpotifyBundledClientID", "YES"])
+        tap("onboarding.carplay.yes")
+        tap("onboarding.music.both")
+        dismissAlerts()
+        expectPage("spotifyIntro")
+        tap("onboarding.spotify.now")
+        expectPage("whatsNew")
+        XCTAssertFalse(element("onboarding.page.spotify.1").exists, "walkthrough must not show")
     }
 
     func testTourHiddenUnderUITestAndReplayableFromSettings() {
@@ -124,7 +137,7 @@ final class OnboardingUITests: XCTestCase {
         }
         settings.tap()
         tap("settings.section.duoDock")
-        XCTAssertTrue(app.buttons["settings.dock.visit"].waitForExistence(timeout: 5), "Duo Dock website button missing")
+        XCTAssertTrue(app.buttons["settings.dock.visit"].waitForExistence(timeout: 5), "Duo Dash mount website button missing")
         tap("settings.section.about")
         tap("onboarding.showAgain")
         expectPage("welcome")

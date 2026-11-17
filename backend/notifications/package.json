@@ -1,0 +1,9 @@
+{
+  "name": "duodash-notify",
+  "private": true,
+  "type": "module",
+  "description": "Duo Dash announcements: Cloudflare Worker + D1, no dependencies",
+  "scripts": {
+    "test": "node --test"
+  }
+}

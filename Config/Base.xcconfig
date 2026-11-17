@@ -19,16 +19,38 @@ DUODASH_EDITION = personal
 // catalog so the commercial build can leave them out of the bundle entirely.
 DUODASH_EXCLUDED_personal =
 DUODASH_EXCLUDED_commercial = BrandedIcons.xcassets
-EXCLUDED_SOURCE_FILE_NAMES = $(DUODASH_EXCLUDED_$(DUODASH_EDITION))
+// The StoreKit test configuration (Duo Dash Pro products) is used by the scheme's Run action
+// in the Simulator; it is never bundled.
+EXCLUDED_SOURCE_FILE_NAMES = $(DUODASH_EXCLUDED_$(DUODASH_EDITION)) DuoDashPro.storekit
+
+// Duo Dash Pro → App icon: alternate icons (Assets.xcassets, drawn by
+// scripts/make-alternate-icons.swift), set with UIApplication.setAlternateIconName.
+ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = AppIconMidnight AppIconSilver AppIconOcean AppIconSunset
 
 // Spotify client ID etc. live in the git-ignored Config/Secrets.xcconfig.
 SPOTIFY_CLIENT_ID =
+// How Spotify connects: `sign-in` (sign in once with PKCE, renewed silently; needs the account
+// on the developer app's allow-list) or `app-remote` (App Remote only, through the Spotify app;
+// the store builds use it because development mode allows only a handful of users).
+// See docs/SPOTIFY_SETUP.md.
+DUODASH_SPOTIFY_MODE = sign-in
 // HomeKit is opt-in: its entitlement needs an app-specific provisioning profile, so
 // DUODASH_HOMEKIT = YES in Config/Local.xcconfig (scripts/setup.sh --homekit) turns it on.
 // Only the app target gets the entitlements file; test bundles get none.
 DUODASH_HOMEKIT = NO
-DUODASH_ENTITLEMENTS_DuoDash_YES = Config/DuoDash.entitlements
-CODE_SIGN_ENTITLEMENTS = $(DUODASH_ENTITLEMENTS_$(TARGET_NAME)_$(DUODASH_HOMEKIT))
+// Push notifications (developer announcements, see docs/NOTIFICATIONS.md) are opt-in the same
+// way: the aps-environment entitlement also needs an app-specific profile, so the default
+// (NO) keeps local builds and CI signing with a wildcard profile. DUODASH_PUSH = YES in the
+// release xcconfig turns it on. The four HomeKit x push combinations each pick a file.
+DUODASH_PUSH = NO
+DUODASH_ENTITLEMENTS_DuoDash_YES_NO = Config/DuoDash.entitlements
+DUODASH_ENTITLEMENTS_DuoDash_NO_YES = Config/DuoDash-Push.entitlements
+DUODASH_ENTITLEMENTS_DuoDash_YES_YES = Config/DuoDash-HomeKit-Push.entitlements
+CODE_SIGN_ENTITLEMENTS = $(DUODASH_ENTITLEMENTS_$(TARGET_NAME)_$(DUODASH_HOMEKIT)_$(DUODASH_PUSH))
+// The announcements server (backend/notifications). Empty = the feature is hidden in the app.
+// "//" starts a comment in xcconfig files, so give the host only (https is assumed),
+// e.g. DUODASH_NOTIFY_URL = duodash-notify.example.workers.dev
+DUODASH_NOTIFY_URL =
 #include? "Secrets.xcconfig"
 
 #include? "Local.xcconfig"

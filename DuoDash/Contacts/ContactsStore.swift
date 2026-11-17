@@ -395,28 +395,28 @@ final class ContactsStore {
     // MARK: Seed data (UI tests, -SeedContacts)
 
     static let seedFavourites: [FavouriteContact] = [
-        FavouriteContact(contactID: "seed-1", name: "Alex Chen", number: "+61 400 000 001", numberLabel: "mobile"),
-        FavouriteContact(contactID: "seed-2", name: "Priya Patel", number: "+61 400 000 002", numberLabel: "mobile"),
-        FavouriteContact(contactID: "seed-3", name: "Sam Taylor", number: "+61 400 000 003", numberLabel: "work"),
+        FavouriteContact(contactID: "seed-1", name: "Alex Chen", number: "+1 555 010 001", numberLabel: "mobile"),
+        FavouriteContact(contactID: "seed-2", name: "Priya Patel", number: "+1 555 010 002", numberLabel: "mobile"),
+        FavouriteContact(contactID: "seed-3", name: "Sam Taylor", number: "+1 555 010 003", numberLabel: "work"),
     ]
 
     static var seedRecents: [RecentEntry] {
         let now = Date()
         return [
-            RecentEntry(kind: .call, name: "Alex Chen", number: "+61 400 000 001", contactID: "seed-1",
+            RecentEntry(kind: .call, name: "Alex Chen", number: "+1 555 010 001", contactID: "seed-1",
                         date: now.addingTimeInterval(-600)),
-            RecentEntry(kind: .message, name: "Priya Patel", number: "+61 400 000 002", contactID: "seed-2",
+            RecentEntry(kind: .message, name: "Priya Patel", number: "+1 555 010 002", contactID: "seed-2",
                         date: now.addingTimeInterval(-3600)),
         ]
     }
 
     static let seedDirectory: [DirectoryContact] = [
-        DirectoryContact(id: "seed-1", name: "Alex Chen", numbers: [LabeledNumber(label: "mobile", number: "+61 400 000 001")]),
+        DirectoryContact(id: "seed-1", name: "Alex Chen", numbers: [LabeledNumber(label: "mobile", number: "+1 555 010 001")]),
         DirectoryContact(id: "seed-4", name: "Jordan Lee", numbers: [
-            LabeledNumber(label: "mobile", number: "+61 400 000 004"),
-            LabeledNumber(label: "home", number: "+61 3 9000 0004"),
+            LabeledNumber(label: "mobile", number: "+1 555 010 004"),
+            LabeledNumber(label: "home", number: "+1 555 020 0004"),
         ]),
-        DirectoryContact(id: "seed-2", name: "Priya Patel", numbers: [LabeledNumber(label: "mobile", number: "+61 400 000 002")]),
-        DirectoryContact(id: "seed-3", name: "Sam Taylor", numbers: [LabeledNumber(label: "work", number: "+61 400 000 003")]),
+        DirectoryContact(id: "seed-2", name: "Priya Patel", numbers: [LabeledNumber(label: "mobile", number: "+1 555 010 002")]),
+        DirectoryContact(id: "seed-3", name: "Sam Taylor", numbers: [LabeledNumber(label: "work", number: "+1 555 010 003")]),
     ]
 }

@@ -103,7 +103,7 @@ final class DashcamTests: XCTestCase {
 
     func testSaveClipMovesPreviousAndCurrentSegments() async throws {
         let (model, _, _) = make()
-        model.ingest(CLLocation(latitude: -37.8136, longitude: 144.9631))
+        model.ingest(CLLocation(latitude: 37.2864, longitude: -122.0369))
         await model.start()
         await rotate(model, 3)
         let before = loopNames(model)
@@ -291,7 +291,7 @@ final class DashcamTests: XCTestCase {
         await model.start()
         let start = Date()
         for tenth in 0..<35 {
-            model.ingest(CLLocation(coordinate: CLLocationCoordinate2D(latitude: -37.8 + Double(tenth) * 0.0001, longitude: 144.9),
+            model.ingest(CLLocation(coordinate: CLLocationCoordinate2D(latitude: 37.3 + Double(tenth) * 0.0001, longitude: -122.1),
                                     altitude: 30, horizontalAccuracy: 5, verticalAccuracy: 5, course: 90, speed: 16,
                                     timestamp: start.addingTimeInterval(Double(tenth) / 10)))
         }

@@ -118,8 +118,9 @@ final class PlacesUITests: XCTestCase {
         XCTAssertEqual(app.textFields["place.name"].value as? String, "Work")
         app.buttons["places.done"].tap()
 
-        // Add a place from the list, then delete it.
-        app.buttons["home.fav.edit"].tap()
+        // Add a place from the list, then delete it (once the editor sheet has gone).
+        _ = app.textFields["place.name"].waitForNonExistence(timeout: 5)
+        app.buttons.onScreen("home.fav.edit").tap()
         XCTAssertTrue(app.buttons["places.add"].waitForExistence(timeout: 5))
         app.buttons["places.add"].tap()
         XCTAssertEqual(app.textFields["place.name"].value as? String, "New place")

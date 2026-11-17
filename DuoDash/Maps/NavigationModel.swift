@@ -65,15 +65,23 @@ final class NavigationModel {
     @ObservationIgnored private var offRouteFixes = 0
     @ObservationIgnored private var lastReroute = Date.distantPast
     @ObservationIgnored private var routeTask: Task<Void, Never>?
+    /// Bumped whenever the trip changes under a running leg calculation (skip, end), so a
+    /// result that arrives late is dropped instead of re-adding a skipped stop.
+    @ObservationIgnored private var tripGeneration = 0
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let routeProvider: RouteProvider?
+    /// Settings → Navigation → "Navigate with": Duo Dash's own guidance, or a hand-off to
+    /// Google Maps / Waze (DuoDash/Maps/ExternalNavigation.swift).
+    let handoff: NavigationHandoff
     static let activeKey = "nav.activeDestination"
     static let voiceKey = "nav.voiceEnabled"
 
-    init(location: LocationManager, defaults: UserDefaults = .standard, routeProvider: RouteProvider? = nil) {
+    init(location: LocationManager, defaults: UserDefaults = .standard, routeProvider: RouteProvider? = nil,
+         handoff: NavigationHandoff? = nil) {
         self.location = location
         self.defaults = defaults
         self.routeProvider = routeProvider
+        self.handoff = handoff ?? NavigationHandoff(defaults: defaults)
         voiceEnabled = defaults.bool(forKey: Self.voiceKey)
         voice.isMuted = !voiceEnabled
         // Data saved before multi-stop is a bare SavedPlace; SavedTrip reads both.
@@ -170,7 +178,15 @@ final class NavigationModel {
     }
 
     /// Calculates every leg of a trip through `stops` (in order) and starts guidance.
+    /// With Google Maps or Waze chosen, the trip is handed to that app straight away and Duo Dash
+    /// keeps the route preview (time, distance, destination weather) on its own map.
     func go(to item: MKMapItem, via stops: [MKMapItem]) {
+        if handoff.usesExternalApp {
+            plan(to: item, via: stops, startWhenReady: false)
+            handoff.handOff(to: item, via: stops)
+            return
+        }
+        handoff.clearNotice()
         plan(to: item, via: stops, startWhenReady: true)
     }
 
@@ -190,7 +206,7 @@ final class NavigationModel {
                 guard !Task.isCancelled, let first = planned.first else { return }
                 legs = planned
                 apply(first)
-                if startWhenReady { start() } else { state = .previewing }
+                if startWhenReady { startHere() } else { state = .previewing }
             } catch {
                 guard !Task.isCancelled else { return }
                 errorMessage = newStops.isEmpty ? "Couldn't find a driving route."
@@ -212,15 +228,16 @@ final class NavigationModel {
         case .navigating:
             guard let target = currentTarget, !isRerouting else { return }
             let index = legIndex
+            let generation = tripGeneration
             isRerouting = true
             routeTask?.cancel()
             routeTask = Task {
-                defer { isRerouting = false }
+                defer { if generation == tripGeneration { isRerouting = false } }
                 do {
                     let source = sourceItem(for: location.location)
                     let toStop = try await route(from: source, to: item)
                     let onward = try await route(from: item, to: target)
-                    guard !Task.isCancelled, state == .navigating, legIndex == index else { return }
+                    guard !Task.isCancelled, generation == tripGeneration, state == .navigating, legIndex == index else { return }
                     stops.insert(item, at: index)
                     legs.replaceSubrange(index...index, with: [toStop, onward])
                     apply(toStop)
@@ -244,6 +261,10 @@ final class NavigationModel {
     /// Drops the stop being driven to and heads for the next one.
     func skipStop() {
         guard state == .navigating, isHeadingToStop, legIndex < legs.count else { return }
+        // Anything still being calculated was for the old trip.
+        tripGeneration += 1
+        routeTask?.cancel()
+        isRerouting = false
         stops.remove(at: legIndex)
         legs.remove(at: legIndex)
         guard legIndex < legs.count else { return }
@@ -253,8 +274,20 @@ final class NavigationModel {
         if let fix = location.location { reroute(from: fix) }
     }
 
+    /// Starts guidance, or, with Google Maps or Waze chosen, hands the trip to that app.
     func start() {
+        if handoff.usesExternalApp {
+            guard let destination else { return }
+            handoff.handOff(to: destination, via: stops)
+            return
+        }
+        startHere()
+    }
+
+    /// Duo Dash's own turn-by-turn guidance, whichever app is chosen in Settings.
+    func startHere() {
         guard route != nil, state != .navigating else { return }
+        handoff.clearNotice()
         resumable = nil
         resumableStops = []
         persistActive()
@@ -269,7 +302,9 @@ final class NavigationModel {
     }
 
     func end() {
+        handoff.clearNotice()
         clearPersisted()
+        tripGeneration += 1
         routeTask?.cancel()
         voice.stop()
         location.setNavigating(false)
@@ -390,13 +425,14 @@ final class NavigationModel {
     private func reroute(from fix: CLLocation) {
         guard let target = currentTarget, !isRerouting else { return }
         let index = legIndex
+        let generation = tripGeneration
         isRerouting = true
         lastReroute = Date()
         voice.speak("Rerouting")
         routeTask = Task {
-            defer { isRerouting = false }
+            defer { if generation == tripGeneration { isRerouting = false } }
             guard let newRoute = try? await calculate(to: target, from: fix), !Task.isCancelled,
-                  state == .navigating, legIndex == index else { return }
+                  generation == tripGeneration, state == .navigating, legIndex == index else { return }
             if index < legs.count { legs[index] = newRoute }
             apply(newRoute)
             spoken = []

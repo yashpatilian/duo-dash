@@ -95,15 +95,38 @@ enum DashcamLens: String, CaseIterable, Sendable {
 @Observable
 final class DashcamSettings {
     static let loopOptions = [2, 5, 10, 20, 30]
+    /// Longer loops for Duo Dash Pro.
+    static let proLoopOptions = [45, 60]
+    static let allLoopOptions = loopOptions + proLoopOptions
     static let defaultLoopMinutes = 10
 
-    /// How many minutes of driving the loop keeps.
+    /// How many minutes of driving the loop keeps (the saved choice; see `effectiveLoopMinutes`).
     var loopMinutes: Int {
         didSet {
-            if !Self.loopOptions.contains(loopMinutes) { loopMinutes = Self.defaultLoopMinutes }
+            if !Self.allLoopOptions.contains(loopMinutes) { loopMinutes = Self.defaultLoopMinutes }
             defaults.set(loopMinutes, forKey: Keys.loop)
         }
     }
+
+    /// Mirrors `ProStore.isPro` (set by the app). Not saved.
+    var isProActive = false
+
+    /// The loop actually kept: a Pro length falls back to the longest free one (30 min) without Pro.
+    var effectiveLoopMinutes: Int {
+        Self.loopOptions.contains(loopMinutes) || isProActive ? loopMinutes : Self.loopOptions.last ?? Self.defaultLoopMinutes
+    }
+
+    /// Duo Dash Pro: save a clip on its own when a crash-like jolt is felt.
+    var impactDetection: Bool {
+        didSet { defaults.set(impactDetection, forKey: Keys.impact) }
+    }
+
+    var impactSensitivity: ImpactSensitivity {
+        didSet { defaults.set(impactSensitivity.rawValue, forKey: Keys.impactSensitivity) }
+    }
+
+    /// Impact detection runs only with Pro.
+    var impactDetectionActive: Bool { isProActive && impactDetection }
 
     /// Record sound from the microphone too. Off by default (privacy).
     var recordsAudio: Bool {
@@ -127,12 +150,17 @@ final class DashcamSettings {
         static let audio = "dashcam.recordsAudio"
         static let autoStart = "dashcam.autoStart"
         static let lens = "dashcam.lens"
+        static let impact = "dashcam.impactDetection"
+        static let impactSensitivity = "dashcam.impactSensitivity"
     }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         let loop = defaults.integer(forKey: Keys.loop)
-        loopMinutes = Self.loopOptions.contains(loop) ? loop : Self.defaultLoopMinutes
+        loopMinutes = Self.allLoopOptions.contains(loop) ? loop : Self.defaultLoopMinutes
+        // On by default: it only runs with Pro, and only while recording.
+        impactDetection = defaults.object(forKey: Keys.impact) as? Bool ?? true
+        impactSensitivity = defaults.string(forKey: Keys.impactSensitivity).flatMap(ImpactSensitivity.init(rawValue:)) ?? .medium
         recordsAudio = defaults.bool(forKey: Keys.audio)
         autoStart = defaults.bool(forKey: Keys.autoStart)
         lens = DashcamLens.stored(in: defaults)

@@ -1,0 +1,19 @@
+// The TestFlight beta of Duo Dash: the full personal look (named "CarPlay" with the CarPlay
+// icon, Apple's app icons in the dock). Build it with
+//   xcodebuild ... -xcconfig Config/TestFlight.xcconfig archive
+// Everything in Base.xcconfig (and your git-ignored Local.xcconfig: team) still applies; the
+// lines below come after it. Its own bundle ID, so it can sit beside the App Store build.
+// Note: "CarPlay" and Apple's icons are Apple trademarks; TestFlight's beta review may reject
+// them for external testers. See docs/DISTRIBUTION.md.
+#include "Base.xcconfig"
+
+DUODASH_EDITION = personal
+DUODASH_DISPLAY_NAME = CarPlay
+DUODASH_APP_ICON = AppIconCarPlay
+DUODASH_BUNDLE_ID = com.duodash.beta
+// Spotify through App Remote only (no Web API sign-in): see docs/SPOTIFY_SETUP.md.
+DUODASH_SPOTIFY_MODE = app-remote
+
+// Announcements (push): the git-ignored Release.xcconfig turns on the push entitlement and sets
+// the server, for this build and the App Store one. See docs/NOTIFICATIONS.md.
+#include? "Release.xcconfig"

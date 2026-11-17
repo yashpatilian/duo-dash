@@ -90,7 +90,7 @@ final class HomeUITests: XCTestCase {
     func testObstruction() throws {
         try launchAndOpen()
         let toggle = app.switches["homekit.demo.obstruction"]
-        for _ in 0..<5 where !toggle.isHittable { app.swipeUp() }
+        for _ in 0..<6 where !(toggle.exists && toggle.isHittable) { app.swipeUp(); _ = toggle.waitForExistence(timeout: 1) }
         // Tap the switch itself (on the right), not the label.
         toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
         XCTAssertEqual(toggle.value as? String, "1")

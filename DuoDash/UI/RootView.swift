@@ -7,6 +7,8 @@ struct RootView: View {
     @Environment(NavigationModel.self) private var navigation
     @Environment(AppleMusicModel.self) private var music
     @Environment(OnboardingModel.self) private var onboarding
+    @Environment(ProStore.self) private var pro
+    @Environment(TripStore.self) private var trips
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -29,7 +31,27 @@ struct RootView: View {
         }
         .background { DashBackground() }
         .foregroundStyle(Theme.textPrimary)
+        // System controls follow the accent (Duo Dash Pro → Themes).
+        .tint(Theme.accent)
         .overlay(alignment: .bottom) { DictationErrorBanner() }
+        // "Impact detected: clip saved" (dashcam, Duo Dash Pro), on whatever screen is open.
+        .overlay(alignment: .top) { ImpactBanner().padding(.top, 8) }
+        // Trip history (Settings → Duo Dash Pro).
+        .overlay {
+            if trips.isBrowsing && pro.isPro {
+                TripsScreen().transition(.move(edge: .trailing))
+            }
+        }
+        .animation(.smooth(duration: 0.3), value: trips.isBrowsing)
+        // The Duo Dash Pro paywall, over everything, opened by any locked control.
+        .overlay {
+            if pro.isPaywallPresented {
+                PaywallView().transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.smooth(duration: 0.3), value: pro.isPaywallPresented)
+        .manageSubscriptionsSheet(isPresented: Binding(get: { pro.isManagingSubscriptions },
+                                                       set: { pro.isManagingSubscriptions = $0 }))
         // "Open garage?" when arriving home (HomeKit).
         .overlay(alignment: .top) { ArrivalBanner().padding(.top, 8) }
         .overlay {
@@ -56,8 +78,13 @@ struct RootView: View {
                 // During the welcome tour, Location is asked for on its permissions page.
                 if !onboarding.isPresented || location.authorization != .notDetermined { location.start() }
                 music.refreshFromPlayer()
+                trips.becameActive()
+                Task { await pro.refreshEntitlements() }
+                // Apps may have been installed or deleted while we were away (dock tiles).
+                app.refreshInstalledApps()
             case .background:
                 UIApplication.shared.isIdleTimerDisabled = false
+                trips.enteredBackground()
                 // Without a route there is no reason to use GPS in the background.
                 if !navigation.isGuiding { location.stop() }
             default:
@@ -134,6 +161,11 @@ struct MainColumn: View {
                     if app.visited.contains(item) {
                         screen(for: item)
                             .opacity(app.selected == item ? 1 : 0)
+                            // Kept-alive screens also move out of the way: at opacity 0 alone
+                            // they still overlapped the open screen for UI automation (iOS 27),
+                            // which saw their controls on top of the visible ones.
+                            .offset(x: app.selected == item ? 0 : 20_000)
+                            .transaction { $0.animation = nil }
                             .allowsHitTesting(app.selected == item)
                             .accessibilityHidden(app.selected != item)
                     }
@@ -179,6 +211,8 @@ struct MainColumn: View {
                 HomeScreen()
             case .dashcam:
                 DashcamScreen()
+            case .youtube:
+                YouTubeScreen()
             case .settings:
                 SettingsView()
             }

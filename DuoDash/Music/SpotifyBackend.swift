@@ -61,6 +61,8 @@ enum SpotifyBackendEvent: Equatable {
 enum SpotifyAuthResult: Equatable {
     case token(String, expiresIn: TimeInterval)
     case failed(String)
+    /// Spotify won't let this account use the developer app (allow-list, invalid client).
+    case refused(String)
 }
 
 enum SpotifyError: LocalizedError {
@@ -95,6 +97,8 @@ protocol SpotifyBackend: AnyObject {
     func authorizationResult(from url: URL) -> SpotifyAuthResult?
     func connect(accessToken: String)
     func disconnect()
+    /// Use another Client ID (the user's own developer app), or nil for none.
+    func setClientID(_ clientID: String?)
 
     func resume() async throws
     func pause() async throws
@@ -111,16 +115,43 @@ protocol SpotifyBackend: AnyObject {
     func image(for imageIdentifier: String, size: CGSize) async -> UIImage?
 }
 
-// MARK: - Access token
+// MARK: - Tokens
 
-/// An App Remote access token. They last about an hour; while one is valid the
-/// app reconnects without sending the user through Spotify again.
+/// The Spotify sign-in: an access token (about an hour) and, from the PKCE sign-in, a refresh
+/// token that renews it without the user. A token from App Remote's wake-up bounce through
+/// Spotify replaces the access token and keeps the refresh token.
 struct SpotifyToken: Codable, Equatable {
     var accessToken: String
     var expiresAt: Date
+    /// nil for tokens saved before sign-in-once (App Remote only): those need Spotify again.
+    var refreshToken: String? = nil
+
+    /// Renew this long before expiry, so a drive never starts on a token about to run out.
+    static let refreshMargin: TimeInterval = 5 * 60
 
     /// A minute of slack, so a token isn't used just as it runs out.
     func isValid(at date: Date = .now) -> Bool { expiresAt.timeIntervalSince(date) > 60 }
+
+    /// Expired, or within `refreshMargin` of it.
+    func needsRefresh(at date: Date = .now) -> Bool { expiresAt.timeIntervalSince(date) < Self.refreshMargin }
+}
+
+/// What to do with the saved token before connecting App Remote.
+enum SpotifyTokenPlan: Equatable {
+    /// Connect with this access token.
+    case use(String)
+    /// Renew silently with this refresh token first.
+    case refresh(String)
+    /// Nothing usable: the user has to sign in.
+    case signIn
+
+    static func plan(for token: SpotifyToken?, at date: Date) -> SpotifyTokenPlan {
+        guard let token else { return .signIn }
+        if !token.needsRefresh(at: date) { return .use(token.accessToken) }
+        if let refresh = token.refreshToken, !refresh.isEmpty { return .refresh(refresh) }
+        // An old App Remote token with no refresh token: use it while it lasts.
+        return token.isValid(at: date) ? .use(token.accessToken) : .signIn
+    }
 }
 
 @MainActor
@@ -130,8 +161,9 @@ protocol SpotifyTokenStore: AnyObject {
     func clear()
 }
 
-/// Keeps the token in the Keychain (this device only, readable after first unlock
-/// so a reconnect while driving with the phone locked still works).
+/// Keeps the access token, its expiry and the refresh token in the Keychain (this device
+/// only, readable after first unlock so a reconnect while driving with the phone locked
+/// still works). Signing out deletes the item.
 @MainActor
 final class KeychainSpotifyTokenStore: SpotifyTokenStore {
     private let service: String

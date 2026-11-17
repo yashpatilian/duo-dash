@@ -10,7 +10,7 @@ enum AssistantIntent: Equatable {
     case findPlaces(query: String, nearDestination: Bool)
     /// "stop at a petrol station on the way" (no destination named).
     case addStopAlongTheWay(category: String)
-    /// "add a stop at Bunnings".
+    /// "add a stop at Costco".
     case addStop(place: String)
     case startNavigation
     case endNavigation

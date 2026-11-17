@@ -31,7 +31,7 @@ while IFS=$'\t' read -r added deleted path; do
   [ -n "${path:-}" ] || continue
   files=$((files + 1))
   if [ "$added" = "-" ]; then
-    flag "Binary file: \`$path\`"
+    block "binary file \`$path\` (binary changes are never accepted from the agent)"
   else
     lines=$((lines + added + deleted))
   fi
@@ -69,6 +69,8 @@ check "a private key"              '-----BEGIN [A-Z ]*PRIVATE KEY-----'
 check "an AWS key"                 'AKIA[0-9A-Z]{16}'
 check "a Team ID"                  'DEVELOPMENT_TEAM *= *[A-Z0-9]{10}'
 check "a Spotify client secret"    '[Cc]lient_?[Ss]ecret *[:=] *"?[0-9a-f]{32}'
+check "a long encoded blob"        '[A-Za-z0-9+/=]{120,}'
+if grep -q '^GIT binary patch' "$PATCH"; then block "a binary patch"; fi
 if printf '%s\n' "$ADDED" | grep -Eq 'https?://' ; then
   urls=$(printf '%s\n' "$ADDED" | grep -Eo 'https?://[^ )"'"'"'>]+' | sort -u | head -20 | sed 's/^/`/; s/$/`/' | paste -sd ',' - | sed 's/,/, /g')
   flag "Adds URLs: $urls"

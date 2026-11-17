@@ -1,0 +1,16 @@
+# Duo Dash announcements worker. Placeholders only: never commit real IDs or secrets.
+# Secrets are set with `wrangler secret put` (see README.md): ADMIN_TOKEN, APNS_KEY,
+# APNS_KEY_ID, APNS_TEAM_ID.
+name = "duodash-notify"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+
+[vars]
+# The builds this server registers and sends to (comma-separated).
+ALLOWED_BUNDLE_IDS = "com.duodash.app,com.duodash.beta"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "duodash-notify"
+# Replace with the id printed by `wrangler d1 create duodash-notify` (keep that edit local).
+database_id = "00000000-0000-0000-0000-000000000000"

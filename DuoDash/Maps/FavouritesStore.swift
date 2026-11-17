@@ -93,12 +93,23 @@ final class FavouritesStore {
             return
         }
         if let data = defaults.data(forKey: Self.key),
-           let decoded = try? JSONDecoder().decode([Favourite].self, from: data) {
-            places = decoded
+           let decoded = try? JSONDecoder().decode([Lossy].self, from: data) {
+            // Keep every place that still reads; a damaged or newer-format record is skipped
+            // (and the saved data is left as it is, not overwritten, until the user edits).
+            places = decoded.compactMap(\.value)
+        } else if defaults.data(forKey: Self.key) != nil {
+            // Unreadable list: show the samples but don't overwrite what's saved.
+            places = Self.migrated(from: defaults.data(forKey: Self.legacyKey))
         } else {
             places = Self.migrated(from: defaults.data(forKey: Self.legacyKey))
             persist()
         }
+    }
+
+    /// Decodes one saved place, or nothing if that record is unreadable.
+    private struct Lossy: Decodable {
+        let value: Favourite?
+        init(from decoder: Decoder) throws { value = try? Favourite(from: decoder) }
     }
 
     static let samplePlaces: [Favourite] = [

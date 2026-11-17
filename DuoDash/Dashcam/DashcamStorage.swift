@@ -183,9 +183,12 @@ final class DashcamStorage {
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
 
+    /// UTC, so names always sort in recording order: a daylight-saving change or a drive into
+    /// an earlier time zone mustn't make new segments look older (the loop deletes "oldest" first).
     private static let segmentStamp: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
         formatter.dateFormat = "yyyyMMdd-HHmmss"
         return formatter
     }()

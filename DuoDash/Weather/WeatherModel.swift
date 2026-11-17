@@ -5,6 +5,11 @@ import Observation
 /// Current weather where you are, and the forecast at a destination for when you
 /// arrive. Forecasts are cached per ~2 km for 15 minutes and concurrent requests
 /// for the same area share one fetch, so the API is never hammered.
+///
+/// Built never to show "unavailable" when it has anything better: two services with retries
+/// (`ResilientWeatherBackend`), the last good forecast saved to disk and shown (marked with its
+/// age) while offline, the last known place used when there's no location fix, and quick
+/// retries after a failure (see `WeatherFollowsLocation`).
 @MainActor
 @Observable
 final class WeatherModel {
@@ -26,13 +31,15 @@ final class WeatherModel {
     /// Areas that just failed, so a flaky connection doesn't trigger a retry storm.
     @ObservationIgnored private var failures: [GridKey: Date] = [:]
     @ObservationIgnored var now: () -> Date = { .now }
+    /// Where the last good forecast for the user's location is saved (nil: not saved).
+    @ObservationIgnored private let savedURL: URL?
 
     /// Reuse a forecast fetched within this distance…
     @ObservationIgnored var cacheRadius: CLLocationDistance = 2_000
     /// …and this age.
     @ObservationIgnored var cacheLifetime: TimeInterval = 15 * 60
     /// Wait this long before retrying an area that failed.
-    @ObservationIgnored var failureBackoff: TimeInterval = 2 * 60
+    @ObservationIgnored var failureBackoff: TimeInterval = 20
 
     /// Where the demo pretends you are when there's no location fix (Cupertino).
     static let demoLocation = GeoPoint(latitude: 37.3230, longitude: -122.0322)
@@ -46,11 +53,44 @@ final class WeatherModel {
         #endif
     }
 
-    init(backend: WeatherBackend? = nil, unit: TemperatureUnit = .current) {
-        let backend = backend ?? (Self.usesDemo ? DemoWeatherBackend() : OpenMeteoBackend())
+    init(backend: WeatherBackend? = nil, unit: TemperatureUnit = .current, savedURL: URL? = nil) {
+        let backend = backend ?? (Self.usesDemo ? DemoWeatherBackend() : ResilientWeatherBackend())
         self.backend = backend
         self.unit = unit
         isDemo = backend.isDemo
+        self.savedURL = savedURL
+        // Start with the last forecast we had, so the app never opens on a blank or an error.
+        if let savedURL, let data = try? Data(contentsOf: savedURL),
+           let saved = try? JSONDecoder().decode(WeatherForecast.self, from: data),
+           now().timeIntervalSince(saved.fetchedAt) < Self.savedMaxAge {
+            current = saved
+        }
+    }
+
+    /// The app's own model: real backends, last forecast saved in Application Support.
+    static func live() -> WeatherModel {
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Weather", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return WeatherModel(savedURL: usesDemo ? nil : dir.appendingPathComponent("last.json"))
+    }
+
+    /// A saved forecast older than this isn't shown (its hours and days have run out).
+    static let savedMaxAge: TimeInterval = 3 * 24 * 3600
+
+    /// How old the shown forecast is, when it's older than a fresh fetch would be (offline).
+    var staleAge: TimeInterval? {
+        guard let current else { return nil }
+        let age = now().timeIntervalSince(current.fetchedAt)
+        return age > cacheLifetime + 5 * 60 ? age : nil
+    }
+
+    /// "Updated 2 hr ago", shown with an old forecast.
+    var staleText: String? {
+        guard let age = staleAge else { return nil }
+        let f = DateComponentsFormatter()
+        f.unitsStyle = .abbreviated; f.maximumUnitCount = 1; f.allowedUnits = [.minute, .hour, .day]
+        return f.string(from: age).map { "Updated \($0) ago" }
     }
 
     // MARK: Formatting
@@ -61,17 +101,32 @@ final class WeatherModel {
 
     /// Updates `current` for where the user is. Cached, so call it on every location change.
     /// With no fix, the demo uses Cupertino and the real backend waits.
-    func updateCurrent(at coordinate: CLLocationCoordinate2D?) async {
-        let point = coordinate.map(GeoPoint.init) ?? (isDemo ? Self.demoLocation : nil)
-        guard let point else { return }
+    /// With no fix it uses the last place it had weather for (a car parked in a garage).
+    /// Returns false when the fetch failed, so the caller retries soon.
+    @discardableResult
+    func updateCurrent(at coordinate: CLLocationCoordinate2D?) async -> Bool {
+        let point = coordinate.map(GeoPoint.init) ?? current?.location ?? (isDemo ? Self.demoLocation : nil)
+        guard let point else { return true }
         if current == nil { isLoading = true }
         defer { isLoading = false }
         do {
-            current = try await forecast(at: point)
+            let forecast = try await forecast(at: point)
+            current = forecast
             errorMessage = nil
+            save(forecast)
+            return true
+        } catch is CancellationError {
+            return true
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "Weather unavailable."
+            // Keep showing what we have (with its age); only say something when there's nothing.
+            if current == nil { errorMessage = "Can't reach the weather service. Trying again…" }
+            return false
         }
+    }
+
+    private func save(_ forecast: WeatherForecast) {
+        guard let savedURL, let data = try? JSONEncoder().encode(forecast) else { return }
+        try? data.write(to: savedURL, options: .atomic)
     }
 
     // MARK: Destination

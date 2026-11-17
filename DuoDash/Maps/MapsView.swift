@@ -126,7 +126,13 @@ struct RoutePreviewCard: View {
                 }
             }
             HStack(spacing: 10) {
-                DashPillButton(title: "Start", symbol: "location.north.fill", identifier: "nav.start") { navigation.start() }
+                if navigation.handoff.usesExternalApp {
+                    // Google Maps / Waze chosen in Settings → Navigation: hand the trip over.
+                    DashPillButton(title: navigation.handoff.actionTitle, symbol: "arrow.up.forward.app",
+                                   identifier: "nav.openExternal") { navigation.start() }
+                } else {
+                    DashPillButton(title: "Start", symbol: "location.north.fill", identifier: "nav.start") { navigation.start() }
+                }
                 if let destination = navigation.destination {
                     Menu {
                         ForEach(favourites.places) { place in
@@ -153,6 +159,9 @@ struct RoutePreviewCard: View {
                 }
                 Spacer(minLength: 0)
                 DashIconButton(symbol: "xmark", label: "Cancel", identifier: "nav.cancel", action: onCancel)
+            }
+            if navigation.handoff.usesExternalApp {
+                ExternalHandoffFooter()
             }
         }
         .padding(16)

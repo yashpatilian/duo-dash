@@ -26,12 +26,21 @@ enum Edition: String, CaseIterable, Sendable {
 
     var isCommercial: Bool { self == .commercial }
 
-    /// The dock and app grid may use Apple's and Spotify's own icons (personal builds only).
+    /// The dock and app grid may use Apple's own app icons (personal and TestFlight builds only).
     var usesOfficialIcons: Bool { self == .personal }
+
+    /// Music services' own icons, shown in every edition (including the App Store build) to mark
+    /// their content, as Spotify's and Apple Music's brand guidelines describe. They live in
+    /// PartnerIcons.xcassets, which every edition ships.
+    static let partnerIconAssets: Set<String> = ["AppIconSpotify", "AppIconMusic"]
 
     /// How the app talks about the in-car system people already know. The commercial build
     /// never says "CarPlay" (Apple's trademark).
     var carSystemName: String { isCommercial ? "a phone on your car's screen" : "CarPlay" }
+
+    /// The safety line: on the welcome page, in Settings → About, the README, the website and
+    /// the App Store description.
+    static let safetyNotice = "For passenger use only. Don't use Duo Dash while driving: set your route and music before you set off, and follow your local road rules."
 
     /// Shown in Settings → About.
     static let notAffiliatedNotice = "Duo Dash is an independent app. It isn't affiliated with, endorsed or sponsored by Apple Inc. or Spotify AB. Apple Music, iPhone and Maps are trademarks of Apple Inc.; Spotify is a trademark of Spotify AB."

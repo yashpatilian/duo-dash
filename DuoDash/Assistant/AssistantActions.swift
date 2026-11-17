@@ -392,7 +392,10 @@ extension AssistantModel {
         let via = stops.isEmpty ? "" : " via \(stops.map { $0.name ?? "a stop" }.joined(separator: " and "))"
         let time = TripSummaryView.duration(navigation.tripTime)
         let distance = DistanceText.display(navigation.tripDistance)
-        let status = startNow ? "Guidance has started." : "Showing a preview; ask the driver whether to start."
+        let handoff = navigation.handoff
+        let opened = "Opened in \(handoff.preferred.title)." + (handoff.notice.map { " \($0)" } ?? "")
+        let status = startNow ? (handoff.usesExternalApp ? opened : "Guidance has started.")
+                              : "Showing a preview; ask the driver whether to start."
         return ToolOutcome(
             text: "Route to \(name)\(via): \(time), \(distance) in total. \(status)\(note.map { " \($0)" } ?? "")",
             say: startNow ? "Starting route to \(name)\(via). \(time)."
@@ -489,6 +492,11 @@ extension AssistantModel {
         switch navigation.state {
         case .previewing:
             navigation.start()
+            if navigation.handoff.usesExternalApp {
+                let app = navigation.handoff.preferred.title
+                return ToolOutcome(text: "Opened the route in \(app).\(navigation.handoff.notice.map { " \($0)" } ?? "")",
+                                   say: "Opening \(app).")
+            }
             return ToolOutcome(text: "Guidance started.", say: "Starting route to \(navigation.destination?.name ?? "your destination").")
         case .navigating:
             return ToolOutcome(text: "Already guiding.", say: "You're already on your way.")

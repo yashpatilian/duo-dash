@@ -38,7 +38,7 @@ enum OnboardingPermission: String, CaseIterable, Identifiable {
 
     var tint: Color {
         switch self {
-        case .location: Theme.accent
+        case .location: Theme.systemBlue
         case .contacts: Color(white: 0.5)
         case .microphone: Color(red: 0.98, green: 0.30, blue: 0.45)
         }

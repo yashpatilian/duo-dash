@@ -49,7 +49,9 @@ final class PhoneMessagesUITests: XCTestCase {
         let button = app.buttons[id]
         XCTAssertTrue(button.waitForExistence(timeout: 5), "\(id) missing")
         button.tap()
-        XCTAssertTrue(button.isSelected, "\(id) not selected")
+        let selected = NSPredicate(format: "isSelected == true")
+        let became = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: selected, object: button)], timeout: 3)
+        XCTAssertEqual(became, .completed, "\(id) not selected")
     }
 
     func testPhoneTabsSwitchAndSeededFavouriteShows() {
@@ -85,7 +87,7 @@ final class PhoneMessagesUITests: XCTestCase {
         for digit in ["0", "4", "1", "2", "star", "hash"] {
             let key = app.buttons["phone.keypad.\(digit)"]
             XCTAssertTrue(key.waitForExistence(timeout: 3), "key \(digit) missing")
-            XCTAssertTrue(key.isHittable, "key \(digit) not hittable")
+            XCTAssertTrue(key.waitForHittable(), "key \(digit) not hittable")
             key.tap()
         }
         let display = app.staticTexts["phone.keypad.display"]

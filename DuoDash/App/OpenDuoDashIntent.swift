@@ -2,11 +2,12 @@ import AppIntents
 
 /// Screens a Shortcut can open Duo Dash on.
 enum DuoDashScreen: String, AppEnum {
-    case home, maps, music, spotify, phone, messages, settings
+    case home, maps, music, spotify, phone, messages, youtube, settings
 
     static let typeDisplayRepresentation: TypeDisplayRepresentation = "Duo Dash Screen"
     static let caseDisplayRepresentations: [DuoDashScreen: DisplayRepresentation] = [
-        .home: "Home", .maps: "Maps", .music: "Music", .spotify: "Spotify", .phone: "Phone", .messages: "Messages", .settings: "Settings",
+        .home: "Home", .maps: "Maps", .music: "Music", .spotify: "Spotify", .phone: "Phone", .messages: "Messages",
+        .youtube: "YouTube", .settings: "Settings",
     ]
 }
 

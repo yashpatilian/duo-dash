@@ -58,7 +58,8 @@ final class MarketingCaptureTests: XCTestCase {
 
     private func playFavourites() {
         open("music")
-        app.buttons["music.tab.playlists"].tap()
+        let playlists = app.buttons["music.tab.playlists"]
+        if playlists.waitForExistence(timeout: 3) { playlists.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
         let row = app.buttons["music.row.0"]
         XCTAssertTrue(row.waitForExistence(timeout: 5))
         row.tap()
@@ -98,7 +99,7 @@ final class MarketingCaptureTests: XCTestCase {
         launch(["-AssistantTranscript", "I want to go to Stanford University but stop for petrol on the way"], canvas: innerCanvas)
         playFavourites()
         open("maps")
-        app.buttons["assistant.open"].firstMatch.tap()
+        app.buttons.onScreen("assistant.open").tap()
         let plan = app.descendants(matching: .any)["assistant.plan"]
         XCTAssertTrue(plan.waitForExistence(timeout: 45), "no planned route (network?)")
         shot("assistant", settle: 3)
@@ -170,5 +171,82 @@ final class MarketingCaptureTests: XCTestCase {
         shot("folded")
         open("music")
         shot("folded-music")
+    }
+
+    /// Settings in the iOS 26 Settings style: sidebar on the inner screen, push on the cover screen.
+    func testCaptureSettings() {
+        launch(canvas: innerCanvas)
+        open("settings")
+        shot("settings-wide")
+        app.buttons["settings.section.navigation"].tap()
+        shot("settings-wide-navigation")
+        app.terminate()
+        launch(canvas: "466x678")
+        open("settings")
+        shot("settings-narrow")
+        app.buttons["settings.section.assistant"].tap()
+        shot("settings-narrow-assistant")
+        app.buttons["settings.back"].tap()
+        app.textFields["settings.search"].tap()
+        app.textFields["settings.search"].typeText("cam")
+        shot("settings-narrow-search")
+    }
+
+    // MARK: App Store screenshots
+
+    /// Full-screen, landscape, App Store edition. Run on the iPhone 6.9" and iPad 13" simulators
+    /// (APPSTORE=1 in the environment, plus CAPTURE=1). Saves whole-screen images at native size.
+    func testAppStoreScreenshots() {
+        // DUO=1: render on the Duo's inner-screen canvas (951x669 pt, 2853x2007 px on a @3x
+        // simulator) for the App Store's iPhone Duo screenshots; the device stays upright so the
+        // canvas screenshot is too.
+        let duo = ProcessInfo.processInfo.environment["DUO"] == "1"
+        XCUIDevice.shared.orientation = duo ? .portrait : .landscapeLeft
+        app = XCUIApplication()
+        if duo { app.launchEnvironment["DUODASH_CANVAS"] = inner }
+        app.launchArguments = ["-UITest", "-ResetState", "-SeedContacts", "-SeedPlaces", "-Capture", "-AssistantLocal",
+                               "-Edition", "commercial", "-ProUnlocked", "-DemoWeatherSky", "clear", "-DemoCar", "-DemoSpotify",
+                               "-AssistantTranscript", "Take me to Stanford University and stop for petrol on the way"]
+        app.launch()
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        for _ in 0..<4 {
+            let alert = springboard.alerts.firstMatch
+            guard alert.waitForExistence(timeout: 2) else { break }
+            for label in ["Allow While Using App", "Allow", "OK"] where alert.buttons[label].exists {
+                alert.buttons[label].tap(); break
+            }
+        }
+        XCTAssertTrue(app.buttons["dock.home"].waitForExistence(timeout: 10))
+        func store(_ name: String, settle: TimeInterval = 2) {
+            Thread.sleep(forTimeInterval: settle)
+            let canvas = app.descendants(matching: .any)["canvas"].firstMatch
+            let image = duo && canvas.exists ? canvas.screenshot() : XCUIScreen.main.screenshot()
+            let attachment = XCTAttachment(screenshot: image)
+            attachment.name = "appstore-\(name)"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        // Something playing, a recent call, so the dashboard looks lived in.
+        playFavourites()
+        open("home")
+        store("1-home")
+        open("maps")
+        app.buttons.onScreen("assistant.open").tap()
+        if app.descendants(matching: .any)["assistant.plan"].waitForExistence(timeout: 45) {
+            store("2-assistant", settle: 3)
+            if app.buttons["assistant.plan.start"].exists { app.buttons["assistant.plan.start"].tap() }
+            _ = app.descendants(matching: .any)["nav.banner"].waitForExistence(timeout: 15)
+            store("3-guidance", settle: 3)
+        }
+        for (id, name) in [("weather", "4-weather"), ("calendar", "5-calendar"), ("car", "6-car"),
+                           ("dashcam", "7-dashcam"), ("settings", "8-settings")] {
+            open(id)
+            if id == "dashcam", app.buttons["dashcam.startHint"].waitForExistence(timeout: 3) {
+                app.buttons["dashcam.startHint"].tap()
+            }
+            store(name, settle: 3)
+        }
+        open("music")
+        store("9-music")
     }
 }

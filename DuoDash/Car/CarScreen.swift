@@ -294,7 +294,7 @@ struct CarStatusCard: View {
         var symbol: String
         var title: String
         var message: String
-        var tint: Color = Theme.accent
+        var tint: Color = Theme.systemBlue
         var busy = false
     }
 

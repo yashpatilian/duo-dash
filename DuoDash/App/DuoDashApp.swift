@@ -3,6 +3,8 @@ import CoreLocation
 
 @main
 struct DuoDashApp: App {
+    /// APNs device tokens and foreground banners for announcements (DuoDash/Notifications).
+    @UIApplicationDelegateAdaptor(DuoDashAppDelegate.self) private var appDelegate
     @State private var app: AppModel
     @State private var location: LocationManager
     @State private var navigation: NavigationModel
@@ -15,12 +17,17 @@ struct DuoDashApp: App {
     @State private var contacts: ContactsStore
     @State private var copiedAddress = CopiedAddressWatcher()
     @State private var calendar = CalendarModel()
-    @State private var weather = WeatherModel()
+    @State private var weather = WeatherModel.live()
     @State private var home: HomeModel
     @State private var dashcamSettings: DashcamSettings
     @State private var dashcam: DashcamModel
     @State private var car = CarDataModel()
     @State private var onboarding: OnboardingModel
+    // Duo Dash Pro (DuoDash/StoreKit, DuoDash/Pro, DuoDash/Trips).
+    @State private var pro: ProStore
+    @State private var theme: ThemeSettings
+    @State private var homeLayout: HomeLayoutSettings
+    @State private var trips: TripStore
 
     init() {
         if LaunchOptions.resetState, let bundle = Bundle.main.bundleIdentifier {
@@ -53,8 +60,22 @@ struct DuoDashApp: App {
         _home = State(initialValue: home)
         _dashcamSettings = State(initialValue: dashcamSettings)
         _dashcam = State(initialValue: dashcam)
+        // After any -ResetState wipe, like the other saved settings.
+        let pro = ProStore.live()
+        let theme = ThemeSettings.shared
+        let homeLayout = HomeLayoutSettings()
+        let trips = TripStore()
+        _pro = State(initialValue: pro)
+        _theme = State(initialValue: theme)
+        _homeLayout = State(initialValue: homeLayout)
+        _trips = State(initialValue: trips)
+        Self.applyPro(pro, theme: theme, homeLayout: homeLayout, dashcamSettings: dashcamSettings,
+                      dashcam: dashcam, trips: trips)
         location.addListener { [weak navigation, weak favourites] fix in
             dashcam.ingest(fix)
+            trips.ingest(fix)
+            // Only trust good fixes for anything that can open the garage.
+            guard fix.horizontalAccuracy >= 0, fix.horizontalAccuracy <= 100 else { return }
             let homePlace = favourites?.place(id: "home")?.location
             let distance = homePlace.map { CLLocation(latitude: $0.latitude, longitude: $0.longitude).distance(from: fix) }
             let headingHome = navigation?.isGuiding == true && homePlace != nil
@@ -63,7 +84,7 @@ struct DuoDashApp: App {
                         .distance(from: CLLocation(latitude: item.location.coordinate.latitude,
                                                    longitude: item.location.coordinate.longitude)) < 150 } ?? false
                 } == true
-            _ = home.arrivalSuggestion(distanceToHome: distance, isNavigatingHome: headingHome, speed: max(0, fix.speed))
+            _ = home.arrivalSuggestion(distanceToHome: distance, isNavigatingHome: headingHome, speed: fix.speed >= 0 ? fix.speed : nil)
         }
     }
 
@@ -100,7 +121,18 @@ struct DuoDashApp: App {
             .environment(dashcam)
             .environment(car)
             .environment(onboarding)
+            .environment(pro)
+            .environment(theme)
+            .environment(homeLayout)
+            .environment(trips)
             .task { await dashcam.startIfAutoStart() }
+            .task { await pro.start() }
+            .onChange(of: pro.isPro) {
+                Self.applyPro(pro, theme: theme, homeLayout: homeLayout, dashcamSettings: dashcamSettings,
+                              dashcam: dashcam, trips: trips)
+                // A dashcam that just became available starts if it's set to.
+                Task { await dashcam.startIfAutoStart() }
+            }
             .task {
                 // Reconnect to a paired OBD adapter; first-time setup happens on the Car screen
                 // (creating the Bluetooth manager is what asks for permission).
@@ -110,6 +142,21 @@ struct DuoDashApp: App {
             .statusBarHidden(true)
             .persistentSystemOverlays(.hidden)
         }
+    }
+}
+
+extension DuoDashApp {
+    /// Hands the Pro status to everything it gates (see `ProGate`).
+    @MainActor
+    static func applyPro(_ pro: ProStore, theme: ThemeSettings, homeLayout: HomeLayoutSettings,
+                         dashcamSettings: DashcamSettings, dashcam: DashcamModel, trips: TripStore) {
+        let isPro = ProGate.proFeatureAvailable(isPro: pro.isPro)
+        theme.isProActive = isPro
+        homeLayout.isProActive = isPro
+        dashcamSettings.isProActive = isPro
+        trips.isProActive = isPro
+        dashcam.accessAllowed = ProGate.dashcamAvailable(edition: .current, isPro: pro.isPro)
+        dashcam.updateImpactMonitoring()
     }
 }
 

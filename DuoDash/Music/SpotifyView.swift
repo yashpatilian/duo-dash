@@ -14,6 +14,7 @@ struct SpotifyView: View {
     @State private var tab: SpotifyTab = .recents
     /// The playlist/album pages open on each list tab, like a navigation stack per tab.
     @State private var paths: [SpotifyTab: [SpotifyItem]] = [:]
+    @State private var confirmingSignOut = false
 
     enum SpotifyTab: String, CaseIterable, Identifiable {
         case nowPlaying = "Now Playing", recents = "Recents", playlists = "Playlists"
@@ -43,8 +44,11 @@ struct SpotifyView: View {
                 }
             case .notConnected:
                 SpotifyStateView(symbol: "headphones", title: "Connect Spotify",
-                                 message: "Spotify opens for a moment to approve, then you're straight back here.",
-                                 actionTitle: "Connect", actionIdentifier: "spotify.connect",
+                                 message: spotify.isSignedIn || spotify.mode == .appRemoteOnly
+                                    ? "Spotify opens for a moment to connect, then you're straight back here. Needs Spotify Premium."
+                                    : "Sign in to Spotify once (Premium). After that Duo Dash reconnects by itself.",
+                                 actionTitle: spotify.isSignedIn ? "Connect" : "Connect Spotify",
+                                 actionIdentifier: "spotify.connect",
                                  identifier: "spotify.notconnected") {
                     spotify.connect()
                 }
@@ -59,14 +63,30 @@ struct SpotifyView: View {
             case .disconnected(let reason):
                 SpotifyStateView(symbol: "bolt.horizontal.circle.fill", title: "Spotify isn't connected",
                                  message: reason, actionTitle: "Reconnect", actionIdentifier: "spotify.reconnect",
-                                 identifier: "spotify.disconnected") {
-                    spotify.connect()
-                }
+                                 identifier: "spotify.disconnected",
+                                 action: { spotify.connect() },
+                                 secondary: spotify.isSignedIn
+                                    ? .init(title: "Sign Out", identifier: "spotify.signout") { confirmingSignOut = true }
+                                    : nil)
+            case .limited:
+                SpotifyStateView(symbol: "music.note.list", title: "Open Spotify",
+                                 message: "Spotify control is limited in this version. You can still open Spotify, and links to playlists and albums open in the Spotify app.",
+                                 actionTitle: "Open Spotify", actionIdentifier: "spotify.open",
+                                 identifier: "spotify.limited",
+                                 action: { openURL(SpotifyModel.spotifyAppURL) },
+                                 secondary: .init(title: "Try Again", identifier: "spotify.retry") { spotify.retryAfterLimited() })
             case .connected:
                 connected
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .confirmationDialog("Sign out of Spotify?", isPresented: $confirmingSignOut, titleVisibility: .visible) {
+            Button("Sign Out", role: .destructive) { spotify.signOut() }
+                .accessibilityIdentifier("spotify.signout.confirm")
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Duo Dash forgets your Spotify sign-in on this phone. You'll sign in again to reconnect.")
+        }
         .overlay(alignment: .bottom) {
             if let message = spotify.errorMessage {
                 Label(message, systemImage: "exclamationmark.triangle.fill")
@@ -139,9 +159,24 @@ struct SpotifyView: View {
                         .padding(.horizontal, 8)
                 }
             }
+            signOutButton
         }
         .padding(.horizontal, 2)
         .frame(height: Theme.minTouch)
+    }
+
+    /// Signs out (after a confirmation): the saved Spotify sign-in is deleted.
+    private var signOutButton: some View {
+        Button { confirmingSignOut = true } label: {
+            Image(systemName: "rectangle.portrait.and.arrow.right")
+                .font(.dashCaption)
+                .foregroundStyle(Theme.textSecondary)
+                .frame(width: Theme.minTouch, height: Theme.minTouch)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PressableStyle())
+        .accessibilityLabel("Sign out of Spotify")
+        .accessibilityIdentifier("spotify.signout")
     }
 
     private func tabButton(_ item: SpotifyTab) -> some View {
@@ -419,6 +454,14 @@ private struct SpotifyStateView: View {
     var actionIdentifier: String? = nil
     let identifier: String
     var action: (() -> Void)? = nil
+    /// A quieter second button under the main one (e.g. Sign Out).
+    var secondary: SecondaryAction? = nil
+
+    struct SecondaryAction {
+        let title: String
+        let identifier: String
+        let action: () -> Void
+    }
 
     var body: some View {
         GeometryReader { proxy in
@@ -451,6 +494,10 @@ private struct SpotifyStateView: View {
                 if let actionTitle, let action {
                     DashPillButton(title: actionTitle, tint: spotifyGreen, identifier: actionIdentifier, action: action)
                         .padding(.top, 6)
+                }
+                if let secondary {
+                    DashPillButton(title: secondary.title, prominent: false, identifier: secondary.identifier,
+                                   action: secondary.action)
                 }
             }
             .padding(24)

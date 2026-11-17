@@ -2,7 +2,7 @@ import SwiftUI
 import CoreLocation
 
 /// A latitude/longitude pair that is Equatable and Sendable (CLLocationCoordinate2D is neither).
-struct GeoPoint: Hashable, Sendable {
+struct GeoPoint: Hashable, Sendable, Codable {
     var latitude: Double
     var longitude: Double
 
@@ -44,7 +44,7 @@ struct CalendarEvent: Identifiable, Hashable, Sendable {
     var url: URL? = nil
 
     var color: Color {
-        guard let rgb = colorRGB, rgb.count >= 3 else { return Theme.accent }
+        guard let rgb = colorRGB, rgb.count >= 3 else { return Theme.systemBlue }
         return Color(red: rgb[0], green: rgb[1], blue: rgb[2])
     }
 

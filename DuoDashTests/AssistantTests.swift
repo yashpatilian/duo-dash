@@ -6,31 +6,31 @@ import MapKit
 
 final class StopPlannerTests: XCTestCase {
     /// About 11 km due north from the CBD.
-    private let line = [CLLocationCoordinate2D(latitude: -37.80, longitude: 144.96),
-                        CLLocationCoordinate2D(latitude: -37.75, longitude: 144.96),
-                        CLLocationCoordinate2D(latitude: -37.70, longitude: 144.96)]
+    private let line = [CLLocationCoordinate2D(latitude: 37.30, longitude: -122.04),
+                        CLLocationCoordinate2D(latitude: 37.35, longitude: -122.04),
+                        CLLocationCoordinate2D(latitude: 37.40, longitude: -122.04)]
 
     func testSamplesAreEvenlySpacedAndCapped() {
         let samples = StopPlanner.samplePoints(along: line, spacing: 2_000, maxCount: 4)
         XCTAssertEqual(samples.count, 4)
         // Half a gap in from each end, rising steadily north.
-        XCTAssertEqual(samples[0].latitude, -37.80 + 0.1 / 8, accuracy: 0.002)
-        XCTAssertEqual(samples[3].latitude, -37.70 - 0.1 / 8, accuracy: 0.002)
+        XCTAssertEqual(samples[0].latitude, 37.30 + 0.1 / 8, accuracy: 0.002)
+        XCTAssertEqual(samples[3].latitude, 37.40 - 0.1 / 8, accuracy: 0.002)
         for k in 1..<samples.count { XCTAssertGreaterThan(samples[k].latitude, samples[k - 1].latitude) }
         XCTAssertEqual(StopPlanner.samplePoints(along: line, spacing: 50_000, maxCount: 5).count, 1)
         XCTAssertTrue(StopPlanner.samplePoints(along: [], spacing: 1_000, maxCount: 3).isEmpty)
     }
 
     func testDistanceToPolyline() {
-        let east = CLLocationCoordinate2D(latitude: -37.75, longitude: 144.97)   // ~880 m east of the line
+        let east = CLLocationCoordinate2D(latitude: 37.35, longitude: -122.03)   // ~880 m east of the line
         XCTAssertEqual(StopPlanner.distance(from: east, to: line), 880, accuracy: 40)
         XCTAssertEqual(StopPlanner.distance(from: line[1], to: line), 0, accuracy: 0.5)
     }
 
     func testShortlistKeepsNearestDedupedAndDropsFarOnes() {
-        let near = StopPlanner.Candidate(id: "near", coordinate: .init(latitude: -37.76, longitude: 144.961))
-        let mid = StopPlanner.Candidate(id: "mid", coordinate: .init(latitude: -37.72, longitude: 144.965))
-        let far = StopPlanner.Candidate(id: "far", coordinate: .init(latitude: -37.75, longitude: 145.10))
+        let near = StopPlanner.Candidate(id: "near", coordinate: .init(latitude: 37.34, longitude: -122.039))
+        let mid = StopPlanner.Candidate(id: "mid", coordinate: .init(latitude: 37.38, longitude: -122.035))
+        let far = StopPlanner.Candidate(id: "far", coordinate: .init(latitude: 37.35, longitude: -121.90))
         let list = StopPlanner.shortlist([mid, far, near, near], route: line, limit: 5, maxOffset: 3_000)
         XCTAssertEqual(list.map(\.id), ["near", "mid"])
         XCTAssertEqual(StopPlanner.shortlist([mid, near], route: line, limit: 1).map(\.id), ["near"])
@@ -61,8 +61,8 @@ final class IntentParserTests: XCTestCase {
     func testNavigate() {
         XCTAssertEqual(IntentParser.parse("Take me to Central Station"),
                        .navigate(destination: "central station", stopAlongTheWay: nil, startNow: true))
-        XCTAssertEqual(IntentParser.parse("Hey, can you navigate to the MCG please?"),
-                       .navigate(destination: "the mcg", stopAlongTheWay: nil, startNow: true))
+        XCTAssertEqual(IntentParser.parse("Hey, can you navigate to the stadium please?"),
+                       .navigate(destination: "the stadium", stopAlongTheWay: nil, startNow: true))
         XCTAssertEqual(IntentParser.parse("take me home"), .navigate(destination: "home", stopAlongTheWay: nil, startNow: true))
         XCTAssertEqual(IntentParser.parse("Take me to Sam’s house"),
                        .navigate(destination: "sam's house", stopAlongTheWay: nil, startNow: true))
@@ -73,8 +73,8 @@ final class IntentParserTests: XCTestCase {
     func testNavigateWithStopOnTheWay() {
         XCTAssertEqual(IntentParser.parse("I want to go to Corner Bakery but stop for petrol on the way"),
                        .navigate(destination: "corner bakery", stopAlongTheWay: "petrol", startNow: false))
-        XCTAssertEqual(IntentParser.parse("Take me to Geelong and stop at a servo along the way"),
-                       .navigate(destination: "geelong", stopAlongTheWay: "servo", startNow: false))
+        XCTAssertEqual(IntentParser.parse("Take me to Santa Cruz and stop at a servo along the way"),
+                       .navigate(destination: "santa cruz", stopAlongTheWay: "servo", startNow: false))
         XCTAssertEqual(IntentParser.parse("Navigate to work, grab coffee on the way"),
                        .navigate(destination: "work", stopAlongTheWay: "coffee", startNow: false))
     }
@@ -82,7 +82,7 @@ final class IntentParserTests: XCTestCase {
     func testStopAlongTheWayAlone() {
         XCTAssertEqual(IntentParser.parse("Stop at a petrol station on the way"), .addStopAlongTheWay(category: "petrol station"))
         XCTAssertEqual(IntentParser.parse("I need to get petrol on the way"), .addStopAlongTheWay(category: "petrol"))
-        XCTAssertEqual(IntentParser.parse("add a stop at Bunnings"), .addStop(place: "bunnings"))
+        XCTAssertEqual(IntentParser.parse("add a stop at Costco"), .addStop(place: "costco"))
     }
 
     func testFindPlaces() {
@@ -144,10 +144,10 @@ final class AssistantToolTests: XCTestCase {
 
     func testInputDecodingValidates() throws {
         let ok = try AssistantToolSpec.decode(PlanRouteInput.self,
-                                              from: Data(#"{"destination":"MCG","stops":[" ", "Bunnings"],"start_now":null}"#.utf8),
+                                              from: Data(#"{"destination":"the stadium","stops":[" ", "Costco"],"start_now":null}"#.utf8),
                                               allowed: ["destination", "stops", "stop_along_the_way", "start_now"]).validated()
-        XCTAssertEqual(ok.destination, "MCG")
-        XCTAssertEqual(ok.stops, ["Bunnings"])
+        XCTAssertEqual(ok.destination, "the stadium")
+        XCTAssertEqual(ok.stops, ["Costco"])
         XCTAssertNil(ok.start_now)
 
         XCTAssertThrowsError(try AssistantToolSpec.decode(PlanRouteInput.self, from: Data(#"{"destination":"x","bogus":1}"#.utf8),

@@ -93,8 +93,8 @@ jobs:
             --model claude-opus-5-5
             --max-turns 20
             --permission-mode default
-            --allowedTools "Read,Glob,Grep,Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh search issues:*)"
-            --disallowedTools "Edit,MultiEdit,Write,NotebookEdit,WebFetch,WebSearch,Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh issue close:*),Bash(gh api:*),Bash(curl:*),Bash(wget:*)"
+            --allowedTools "Read(./**),Glob,Grep,Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh search issues:*)"
+            --disallowedTools "Edit,MultiEdit,Write,NotebookEdit,WebFetch,WebSearch,Read(/proc/**),Read(/etc/**),Read(~/**),Bash(env:*),Bash(printenv:*),Bash(cat:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh issue close:*),Bash(gh api:*),Bash(curl:*),Bash(wget:*)"
             --json-schema '{"type":"object","additionalProperties":false,"required":["category","needs_info","missing","duplicate_of","comment","suspicious","notes"],"properties":{"category":{"type":"string","enum":["bug","feature","support","other"]},"needs_info":{"type":"boolean"},"missing":{"type":"array","items":{"type":"string"}},"duplicate_of":{"type":["integer","null"]},"comment":{"type":"string"},"suspicious":{"type":"boolean"},"notes":{"type":"string"}}}'
 
   apply:
@@ -147,6 +147,8 @@ jobs:
           text = re.sub(r"(?<![\w`])@(?=[A-Za-z0-9-])", "@​", text)          # no pings
           text = re.sub(r"(?m)^\s*/agent", "`/agent`", text)                       # no commands
           text = re.sub(r"<!--.*?-->", "", text, flags=re.S)                        # no hidden text
+          if re.search(r"sk-ant-|gh[pousr]_[A-Za-z0-9]|github_pat_|-----BEGIN|AKIA[0-9A-Z]{16}|[A-Za-z0-9+/]{120,}", text):
+              text = "The triage agent's reply looked like it contained a secret, so it was not posted. A maintainer will take a look."
           marker = "<!-- duo-dash-triage -->"
           footer = ("\n\n---\n<sub>Automated reply from the Duo Dash triage assistant "
                     f"([run]({run})). The maintainer reads every issue and will follow up if needed.</sub>")

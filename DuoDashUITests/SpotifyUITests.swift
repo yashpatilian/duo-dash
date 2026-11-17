@@ -71,7 +71,7 @@ final class SpotifyUITests: XCTestCase {
         openSpotify()
         XCTAssertTrue(app.staticTexts["spotify.notinstalled.title"].waitForExistence(timeout: 5))
         let get = app.buttons["spotify.appstore"]
-        XCTAssertTrue(get.exists && get.isHittable)
+        XCTAssertTrue(get.waitForHittable())
         XCTAssertGreaterThanOrEqual(get.frame.height, 60)
         screenshot("spotify-not-installed")
     }
@@ -81,7 +81,8 @@ final class SpotifyUITests: XCTestCase {
         openSpotify()
         let connect = app.buttons["spotify.connect"]
         XCTAssertTrue(connect.waitForExistence(timeout: 5), "connect state missing")
-        XCTAssertGreaterThanOrEqual(connect.frame.height, 60)
+        // Rounded: a button at a fractional y can measure 59.99999999999997.
+        XCTAssertGreaterThanOrEqual(connect.frame.height.rounded(), 60)
         screenshot("spotify-connect")
         connect.tap()
 

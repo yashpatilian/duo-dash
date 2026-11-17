@@ -34,9 +34,9 @@ final class ContactsStoreTests: XCTestCase {
 
     func testAddingTheSameContactAndNumberTwiceDoesNotDuplicate() {
         let store = makeStore()
-        let number = LabeledNumber(label: "mobile", number: "+61 400 000 001")
+        let number = LabeledNumber(label: "mobile", number: "+1 555 010 0001")
         store.addFavourite(name: "Alex", number: number, contactID: "c1", thumbnail: nil)
-        store.addFavourite(name: "Alex Chen", number: LabeledNumber(label: "mobile", number: "+61400000001"),
+        store.addFavourite(name: "Alex Chen", number: LabeledNumber(label: "mobile", number: "+15550100001"),
                            contactID: "c1", thumbnail: nil)
         XCTAssertEqual(store.favourites.count, 1)
         XCTAssertEqual(store.favourites[0].name, "Alex Chen", "name refreshed on re-add")
@@ -96,25 +96,25 @@ final class ContactsStoreTests: XCTestCase {
     }
 
     func testNumberChoice() {
-        let mobile = LabeledNumber(label: "mobile", number: "+61 400 000 001")
+        let mobile = LabeledNumber(label: "mobile", number: "+1 555 010 0001")
         let home = LabeledNumber(label: "home", number: "(03) 9000 0001")
         XCTAssertEqual(NumberChoice.resolve([]), .none)
         XCTAssertEqual(NumberChoice.resolve([LabeledNumber(label: "x", number: "n/a")]), .none)
         XCTAssertEqual(NumberChoice.resolve([mobile]), .single(mobile))
         XCTAssertEqual(NumberChoice.resolve([mobile, home]), .multiple([mobile, home]))
         // The same number stored twice with different formatting is one choice.
-        XCTAssertEqual(NumberChoice.resolve([mobile, LabeledNumber(label: "iPhone", number: "+61400000001")]), .single(mobile))
+        XCTAssertEqual(NumberChoice.resolve([mobile, LabeledNumber(label: "iPhone", number: "+15550100001")]), .single(mobile))
         // A previously chosen number is used without asking again.
         XCTAssertEqual(NumberChoice.resolve([mobile, home], preferred: "0499 999 999"), .multiple([mobile, home]))
         XCTAssertEqual(NumberChoice.resolve([mobile, home], preferred: "(03) 9000-0001"), .single(home))
     }
 
     func testDialURL() {
-        XCTAssertEqual(PhoneNumber.dialURL("+61 (400) 000-001")?.absoluteString, "tel://+61400000001")
+        XCTAssertEqual(PhoneNumber.dialURL("+1 (555) 010-0001")?.absoluteString, "tel://+15550100001")
         XCTAssertEqual(PhoneNumber.digits("1+2"), "12", "only a leading + is kept")
         XCTAssertNotNil(PhoneNumber.dialURL("*#06#"))
         XCTAssertNil(PhoneNumber.dialURL("call me"))
-        XCTAssertEqual(PhoneNumber.faceTimeAudioURL("+61 (400) 000-001")?.absoluteString, "facetime-audio://+61400000001")
+        XCTAssertEqual(PhoneNumber.faceTimeAudioURL("+1 (555) 010-0001")?.absoluteString, "facetime-audio://+15550100001")
         XCTAssertNil(PhoneNumber.faceTimeAudioURL("call me"))
     }
 
@@ -125,6 +125,6 @@ final class ContactsStoreTests: XCTestCase {
         XCTAssertFalse(store.favourites.isEmpty)
         XCTAssertFalse(store.directory.isEmpty)
         XCTAssertEqual(store.search("jordan").map(\.name), ["Jordan Lee"])
-        XCTAssertEqual(store.search("000 002").map(\.name), ["Priya Patel"], "search by number")
+        XCTAssertEqual(store.search("010 002").map(\.name), ["Priya Patel"], "search by number")
     }
 }

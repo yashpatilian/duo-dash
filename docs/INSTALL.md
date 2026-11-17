@@ -85,8 +85,8 @@ Follow [SPOTIFY_SETUP.md](SPOTIFY_SETUP.md) to create a free Spotify developer a
 ```bash
 scripts/setup.sh --spotify-client-id <your-client-id> --install
 ```
-You need Spotify Premium and the Spotify app on the phone. The first time you connect,
-Spotify opens briefly to authorise.
+You need Spotify Premium and the Spotify app on the phone. The first time you connect you
+sign in to Spotify once; after that Duo Dash renews the sign-in by itself.
 
 ### Claude for the assistant
 - **Default:** the assistant uses **Apple Intelligence**, on the device and free.

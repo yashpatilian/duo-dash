@@ -101,6 +101,10 @@ final class OnboardingModel {
     /// permissions page is skipped when nothing is left to ask. Set by the app.
     @ObservationIgnored var needsPermissions: () -> Bool = { true }
 
+    /// The build ships a Spotify client ID (`SpotifyConfig.hasBundledClientID`): connecting is
+    /// one sign-in, so the developer-dashboard walkthrough is skipped.
+    let spotifyClientBundled: Bool
+
     enum Keys {
         static let completed = "onboarding.completed"
         static let path = "onboarding.path"
@@ -111,8 +115,10 @@ final class OnboardingModel {
 
     private let defaults: UserDefaults
 
-    init(defaults: UserDefaults = .standard, arguments: [String] = ProcessInfo.processInfo.arguments) {
+    init(defaults: UserDefaults = .standard, arguments: [String] = ProcessInfo.processInfo.arguments,
+         spotifyClientBundled: Bool? = nil) {
         self.defaults = defaults
+        self.spotifyClientBundled = spotifyClientBundled ?? SpotifyConfig.hasBundledClientID(arguments: arguments)
         let completed = defaults.bool(forKey: Keys.completed)
         self.completed = completed
         usedCarPlay = defaults.string(forKey: Keys.usedCarPlay).map { $0 == "yes" }
@@ -161,7 +167,8 @@ final class OnboardingModel {
 
     func advance() {
         guard let next = Self.next(after: step, usedCarPlay: usedCarPlay, music: music,
-                                   spotifySetupNow: spotifySetupNow, needsPermissions: needsPermissions()) else {
+                                   spotifySetupNow: spotifySetupNow, spotifyClientBundled: spotifyClientBundled,
+                                   needsPermissions: needsPermissions()) else {
             finish()
             return
         }
@@ -173,7 +180,7 @@ final class OnboardingModel {
         path.removeLast()
     }
 
-    /// Skip the rest of the tour from any page: straight to the last step (the Duo Dock card,
+    /// Skip the rest of the tour from any page: straight to the last step (the Duo Dash mount card,
     /// whose "Not now" closes the tour). Permissions not granted here are asked for when
     /// each feature first needs them.
     func skip() {
@@ -181,7 +188,7 @@ final class OnboardingModel {
         path.append(.promo)
     }
 
-    /// Done (the Duo Dock sheet's "Get Duo Dock" or "Not now").
+    /// Done (the Duo Dash mount sheet's "Register interest" or "Not now").
     func finish() {
         completed = true
         isPresented = false
@@ -195,8 +202,11 @@ final class OnboardingModel {
     }
 
     /// The page after `step`, given the answers so far. nil when the tour is over.
+    /// `spotifyClientBundled`: the build has a Spotify client ID, so `.spotifyIntro` is a
+    /// "Connect Spotify" page and the developer-dashboard walkthrough never shows.
     static func next(after step: OnboardingStep, usedCarPlay: Bool?, music: OnboardingMusicChoice?,
-                     spotifySetupNow: Bool?, needsPermissions: Bool) -> OnboardingStep? {
+                     spotifySetupNow: Bool?, spotifyClientBundled: Bool,
+                     needsPermissions: Bool) -> OnboardingStep? {
         let afterMusic: () -> OnboardingStep = {
             usedCarPlay == true ? .whatsNew : .tour(.dock)
         }
@@ -207,8 +217,10 @@ final class OnboardingModel {
         case .music:
             return music?.usesSpotify == true ? .spotifyIntro : afterMusic()
         case .spotifyIntro:
-            return spotifySetupNow == true ? .spotify(1) : afterMusic()
+            return spotifySetupNow == true && !spotifyClientBundled ? .spotify(1) : afterMusic()
         case .spotify(let n):
+            // A tour saved mid-walkthrough by a build without a client ID, resumed by one with it.
+            if spotifyClientBundled { return afterMusic() }
             return n < OnboardingStep.spotifyStepCount ? .spotify(n + 1) : .spotifyFinish
         case .spotifyFinish:
             return afterMusic()
@@ -226,9 +238,9 @@ final class OnboardingModel {
     }
 }
 
-/// Where the Duo Dock car mount is sold. One constant for the onboarding sheet and Settings.
+/// Where the Duo Dash mount car mount is sold. One constant for the onboarding sheet and Settings.
 enum DockStore {
-    static let url = URL(string: "https://doc.yashyp.com")!
+    static let url = URL(string: "https://duodash.app/mount")!
 }
 
 /// The Spotify setup guide, linked (and QR-coded) from the walkthrough.
